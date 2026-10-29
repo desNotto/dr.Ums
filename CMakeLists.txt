@@ -38,6 +38,10 @@ juce_add_plugin(DrUms
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
     COPY_PLUGIN_AFTER_BUILD     FALSE)
 
+# Картинка барабанной установки вшивается в плагин (см. Resources/kit.png)
+juce_add_binary_data(DrUmsData SOURCES Resources/kit.png)
+set_target_properties(DrUmsData PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
 target_sources(DrUms PRIVATE
     Source/Model.cpp
     Source/DrumMaps.cpp
@@ -58,6 +62,7 @@ target_compile_options(DrUms PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
 
 target_link_libraries(DrUms
     PRIVATE
+        DrUmsData
         juce::juce_audio_utils
         juce::juce_gui_basics
     PUBLIC

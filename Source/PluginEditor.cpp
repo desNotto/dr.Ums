@@ -51,7 +51,7 @@ DrUmsEditor::DrUmsEditor (DrUmsProcessor& p)
     kit.setBounds (170, 158, 582, 360);
     grooves.setBounds (14, 158, 738, 360);
     preview.setBounds (14, 540, 676, 60);
-    heartBtn.setBounds (698, 540, 54, 60);
+    heartBtn.setBounds (698, 543, 54, 54);
     status.setBounds (188, 488, 380, 22);
 
     status.setFont (ui::boldFont (12.0f));

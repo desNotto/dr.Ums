@@ -4,6 +4,7 @@
 #include <cmath>
 #include <functional>
 #include <numeric>
+#include <BinaryData.h>
 #include "PluginProcessor.h"
 
 // Интерфейс dr. Ums: тёмная тема, фиолетовый акцент, у каждой дорожки свой цвет.
@@ -168,21 +169,33 @@ inline void drawLock (juce::Graphics& g, juce::Rectangle<float> r, bool locked, 
 
 inline void drawHeart (juce::Graphics& g, juce::Rectangle<float> r, bool over)
 {
-    g.setColour (col::heart.withAlpha (over ? 0.35f : 0.20f));
-    g.fillEllipse (r.expanded (4.0f));
-    g.setGradientFill (juce::ColourGradient::vertical (col::heart.brighter (0.2f), r.getY(), col::heart.darker (0.2f), r.getBottom()));
-    g.fillEllipse (r);
+    // строго круглая кнопка: берём квадрат по центру области
+    const float d = juce::jmin (r.getWidth(), r.getHeight());
+    const auto circle = juce::Rectangle<float> (d, d).withCentre (r.getCentre());
 
+    g.setColour (col::heart.withAlpha (over ? 0.34f : 0.20f));
+    g.fillEllipse (circle.expanded (3.0f));
+    g.setGradientFill (juce::ColourGradient::vertical (col::heart.brighter (0.2f), circle.getY(),
+                                                       col::heart.darker (0.2f), circle.getBottom()));
+    g.fillEllipse (circle);
+
+    // сердце по параметрической кривой: симметрично относительно вертикальной оси
     juce::Path h;
-    h.startNewSubPath (0.5f, 0.88f);
-    h.cubicTo (-0.05f, 0.50f, 0.02f, 0.10f, 0.28f, 0.10f);
-    h.cubicTo (0.42f, 0.10f, 0.50f, 0.20f, 0.50f, 0.30f);
-    h.cubicTo (0.50f, 0.20f, 0.58f, 0.10f, 0.72f, 0.10f);
-    h.cubicTo (0.98f, 0.10f, 1.05f, 0.50f, 0.50f, 0.88f);
+    const int n = 160;
+    for (int i = 0; i < n; ++i)
+    {
+        const float t = juce::MathConstants<float>::twoPi * (float) i / (float) n;
+        const float x = 16.0f * std::pow (std::sin (t), 3.0f);
+        const float y = -(13.0f * std::cos (t) - 5.0f * std::cos (2.0f * t) - 2.0f * std::cos (3.0f * t) - std::cos (4.0f * t));
+        if (i == 0)
+            h.startNewSubPath (x, y);
+        else
+            h.lineTo (x, y);
+    }
     h.closeSubPath();
 
-    const auto box = r.reduced (r.getWidth() * 0.22f);
-    h.applyTransform (juce::AffineTransform::scale (box.getWidth(), box.getHeight()).translated (box.getX(), box.getY()));
+    const auto box = circle.reduced (d * 0.215f).translated (0.0f, -d * 0.01f);
+    h.scaleToFit (box.getX(), box.getY(), box.getWidth(), box.getHeight(), true);
     g.setColour (juce::Colours::white);
     g.fillPath (h);
 }
@@ -484,10 +497,17 @@ private:
     int curNum = 4, curDen = 4;
 };
 
-// ------------------------------------------------------------------ барабанная установка
+// ------------------------------------------------------------------ барабанная установка (фото)
+// Картинка лежит в Resources/kit.png и вшивается в плагин. Во время Play поверх неё
+// полупрозрачно подсвечиваются те барабаны и тарелки, которые сейчас играют.
 class KitView : public juce::Component
 {
 public:
+    KitView()
+    {
+        image = juce::ImageCache::getFromMemory (BinaryData::kit_png, BinaryData::kit_pngSize);
+    }
+
     void flash (int art)
     {
         if (art >= 0 && art < drums::kNumArts)
@@ -514,30 +534,34 @@ public:
     {
         const auto b = getLocalBounds().toFloat();
 
-        // сцена
         juce::Path panel;
         panel.addRoundedRectangle (b.reduced (0.5f), 18.0f);
-        g.setGradientFill (juce::ColourGradient::vertical (juce::Colour (0xFF1D2433), b.getY(), juce::Colour (0xFF0F131B), b.getBottom()));
+        g.setColour (juce::Colour (0xFF0D0D10));
         g.fillPath (panel);
 
-        g.saveState();
-        g.reduceClipRegion (panel, juce::AffineTransform());
+        if (image.isValid())
+        {
+            // картинка вписывается с обрезкой по краям, чтобы не было полос
+            const float iw = (float) image.getWidth(), ih = (float) image.getHeight();
+            const float s = std::max (b.getWidth() / iw, b.getHeight() / ih);
+            const float dw = iw * s, dh = ih * s;
+            const float ox = (b.getWidth() - dw) * 0.5f, oy = (b.getHeight() - dh) * 0.5f;
 
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0x30A99CFF), b.getCentreX(), b.getY() + 40.0f,
-                                                 juce::Colour (0x00A99CFF), b.getCentreX(), b.getY() + 40.0f + b.getWidth() * 0.62f, true));
-        g.fillRect (b);
+            // масштаб под реальные пиксели экрана, чтобы картинка не мылилась
+            const float px = g.getInternalContext().getPhysicalPixelScaleFactor();
+            const int tw = juce::jmax (1, juce::roundToInt (dw * px));
+            const int th = juce::jmax (1, juce::roundToInt (dh * px));
+            if (! scaled.isValid() || scaled.getWidth() != tw || scaled.getHeight() != th)
+                scaled = image.rescaled (tw, th, juce::Graphics::highResamplingQuality);
 
-        // пол: эллипс света под установкой
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0x40000000), b.getCentreX(), b.getBottom() - 70.0f,
-                                                 juce::Colour (0x00000000), b.getCentreX() + b.getWidth() * 0.5f, b.getBottom() - 70.0f, true));
-        g.fillEllipse (b.getCentreX() - b.getWidth() * 0.5f, b.getBottom() - 150.0f, b.getWidth(), 170.0f);
+            g.saveState();
+            g.reduceClipRegion (panel, juce::AffineTransform());
+            g.drawImage (scaled, juce::Rectangle<float> (ox, oy, dw, dh));
 
-        const float s = std::min (b.getWidth() / kDesignW, b.getHeight() / kDesignH);
-        g.addTransform (juce::AffineTransform::scale (s).translated ((b.getWidth() - kDesignW * s) * 0.5f,
-                                                                     (b.getHeight() - kDesignH * s) * 0.5f));
-        g.addTransform (juce::AffineTransform::translation (0.0f, -12.0f));
-        drawKit (g);
-        g.restoreState();
+            g.addTransform (juce::AffineTransform::scale (s).translated (ox, oy));
+            drawHighlights (g);
+            g.restoreState();
+        }
 
         g.setColour (col::line);
         g.drawRoundedRectangle (b.reduced (0.5f), 18.0f, 1.0f);
@@ -545,8 +569,18 @@ public:
 
 private:
     using A = drums::Art;
-    using Pt = juce::Point<float>;
-    static constexpr float kDesignW = 586.0f, kDesignH = 380.0f;
+
+    // Области элементов в координатах картинки (1104 x 695).
+    struct Ell { float cx, cy, rx, ry; };
+
+    static constexpr Ell kCrashFarLeft { 178.0f, 78.0f, 134.0f, 40.0f };
+    static constexpr Ell kCrashLeft    { 390.0f, 41.0f, 104.0f, 31.0f };
+    static constexpr Ell kSplash       { 558.0f, 27.0f, 55.0f, 16.0f };
+    static constexpr Ell kChina        { 684.0f, 103.0f, 66.0f, 21.0f };
+    static constexpr Ell kCrashRight   { 884.0f, 65.0f, 129.0f, 39.0f };
+    static constexpr Ell kRide         { 978.0f, 200.0f, 116.0f, 37.0f };
+    static constexpr Ell kHat          { 108.0f, 280.0f, 112.0f, 38.0f };
+    static constexpr Ell kKick         { 545.0f, 493.0f, 147.0f, 133.0f };
 
     float fl (A a) const { return flashes[(size_t) a]; }
 
@@ -558,262 +592,78 @@ private:
         return m;
     }
 
-    void halo (juce::Graphics& g, juce::Rectangle<float> b, A a, float f) const
+    static juce::Rectangle<float> box (Ell e) { return { e.cx - e.rx, e.cy - e.ry, e.rx * 2.0f, e.ry * 2.0f }; }
+
+    // Мягкое свечение вокруг элемента: эллиптический радиальный градиент без резких краёв.
+    static void halo (juce::Graphics& g, juce::Rectangle<float> b, juce::Colour c, float f)
     {
-        if (f <= 0.0f)
-            return;
-        const auto c = col::lane (drums::laneOf (a));
         const auto m = b.getCentre();
-        g.setGradientFill (juce::ColourGradient (c.withAlpha (0.55f * f), m.x, m.y,
-                                                 c.withAlpha (0.0f), m.x + b.getWidth() * 0.78f, m.y, true));
-        g.fillEllipse (b.expanded (b.getWidth() * 0.5f, b.getHeight() * 0.9f));
-    }
-
-    static void pole (juce::Graphics& g, Pt a, Pt b, float w = 3.0f)
-    {
-        g.setColour (juce::Colour (0x66000000));
-        g.drawLine (juce::Line<float> (a.translated (2.0f, 1.0f), b.translated (2.0f, 1.0f)), w);
-        g.setColour (juce::Colour (0xFF8E98AB));
-        g.drawLine (juce::Line<float> (a, b), w);
-        g.setColour (juce::Colour (0x55FFFFFF));
-        g.drawLine (juce::Line<float> (a.translated (-0.8f, 0.0f), b.translated (-0.8f, 0.0f)), 1.0f);
-    }
-
-    static void tripod (juce::Graphics& g, Pt base, float spread = 36.0f)
-    {
-        pole (g, base, base.translated (-spread, 14.0f), 2.2f);
-        pole (g, base, base.translated (spread, 14.0f), 2.2f);
-        pole (g, base, base.translated (0.0f, 20.0f), 2.2f);
-    }
-
-    void cymbal (juce::Graphics& g, Pt c, float rx, float ry, A colourArt, float f, bool brass = false) const
-    {
-        const auto bounds = juce::Rectangle<float> (rx * 2.0f, ry * 2.0f).withCentre (c);
-        halo (g, bounds, colourArt, f);
-
-        g.setColour (juce::Colours::black.withAlpha (0.30f));
-        g.fillEllipse (bounds.translated (4.0f, 8.0f));
-
-        const auto light = brass ? juce::Colour (0xFFF3D78E) : juce::Colour (0xFFFAEAA8);
-        const auto mid   = brass ? juce::Colour (0xFFC2902F) : juce::Colour (0xFFD7A83C);
-        const auto edge  = brass ? juce::Colour (0xFF704A12) : juce::Colour (0xFF8C6217);
+        const float R = b.getWidth() * 0.72f;
+        const float ratio = juce::jlimit (0.3f, 1.0f, b.getHeight() / b.getWidth());
 
         g.saveState();
-        g.addTransform (juce::AffineTransform::scale (1.0f, ry / rx, c.x, c.y));
-
-        juce::ColourGradient grad (light, c.x - rx * 0.25f, c.y - rx * 0.30f, edge, c.x + rx * 0.95f, c.y + rx * 0.95f, true);
-        grad.addColour (0.42, mid);
-        g.setGradientFill (grad);
-        g.fillEllipse (c.x - rx, c.y - rx, rx * 2.0f, rx * 2.0f);
-
-        // проточка
-        for (int k = 1; k <= 4; ++k)
-        {
-            const float q = 0.2f + 0.18f * (float) k;
-            g.setColour (k % 2 ? juce::Colour (0x28000000) : juce::Colour (0x1CFFFFFF));
-            g.drawEllipse (c.x - rx * q, c.y - rx * q, rx * q * 2.0f, rx * q * 2.0f, 0.9f);
-        }
-
-        // купол
-        const float br = rx * 0.19f;
-        g.setGradientFill (juce::ColourGradient (light, c.x - br * 0.4f, c.y - br * 0.5f, mid.darker (0.2f), c.x + br, c.y + br, true));
-        g.fillEllipse (c.x - br, c.y - br, br * 2.0f, br * 2.0f);
-        g.setColour (juce::Colour (0x55000000));
-        g.drawEllipse (c.x - br, c.y - br, br * 2.0f, br * 2.0f, 0.8f);
-        g.setColour (juce::Colour (0xAA3A2608));
-        g.fillEllipse (c.x - 2.0f, c.y - 2.0f, 4.0f, 4.0f);
-
-        // блик и кромка
-        juce::Path arc;
-        arc.addCentredArc (c.x, c.y, rx * 0.93f, rx * 0.93f, 0.0f, -2.5f, -0.9f, true);
-        g.setColour (juce::Colour (0x66FFFFFF));
-        g.strokePath (arc, juce::PathStrokeType (1.6f));
-        g.setColour (edge);
-        g.drawEllipse (c.x - rx, c.y - rx, rx * 2.0f, rx * 2.0f, 1.6f);
-
-        if (f > 0.0f)
-        {
-            g.setColour (col::lane (drums::Lane::Cymbals).withAlpha (0.38f * f));
-            g.fillEllipse (c.x - rx, c.y - rx, rx * 2.0f, rx * 2.0f);
-        }
+        g.addTransform (juce::AffineTransform::scale (1.0f, ratio, m.x, m.y));
+        g.setGradientFill (juce::ColourGradient (c.withAlpha (0.50f * f), m.x, m.y,
+                                                 c.withAlpha (0.0f), m.x + R, m.y, true));
+        g.fillEllipse (m.x - R, m.y - R, R * 2.0f, R * 2.0f);
         g.restoreState();
     }
 
-    void drum (juce::Graphics& g, Pt c, float rx, float ry, float depth, A a, float f, bool metal, bool legs) const
+    static void glowDisc (juce::Graphics& g, Ell e, A art, float f)
     {
-        const auto whole = juce::Rectangle<float> (rx * 2.0f, ry * 2.0f + depth).withCentre ({ c.x, c.y + depth * 0.5f });
-        halo (g, whole, a, f);
-
-        // тень на полу
-        g.setColour (juce::Colours::black.withAlpha (0.28f));
-        g.fillEllipse (c.x - rx * 1.05f, c.y + depth - ry * 0.35f, rx * 2.1f, ry * 1.5f);
-
-        if (legs)
-            for (float dx : { -0.78f, 0.0f, 0.78f })
-            {
-                const Pt top (c.x + dx * rx, c.y + depth * 0.6f + (dx == 0.0f ? ry * 0.7f : 0.0f));
-                pole (g, top, Pt (c.x + dx * rx * 1.12f, c.y + depth + ry + 6.0f), 3.0f);
-            }
-
-        // корпус
-        juce::Path body;
-        body.startNewSubPath (c.x + rx, c.y);
-        body.lineTo (c.x + rx, c.y + depth);
-        body.addArc (c.x - rx, c.y + depth - ry, rx * 2.0f, ry * 2.0f, juce::MathConstants<float>::halfPi,
-                     juce::MathConstants<float>::pi * 1.5f, false);
-        body.lineTo (c.x - rx, c.y);
-        body.closeSubPath();
-
-        juce::ColourGradient shell (metal ? juce::Colour (0xFF8D96A8) : juce::Colour (0xFF1B2232), c.x - rx, c.y, metal ? juce::Colour (0xFF5C6577) : juce::Colour (0xFF0C1018), c.x + rx, c.y, false);
-        shell.addColour (0.30, metal ? juce::Colour (0xFFE6EAF2) : juce::Colour (0xFF39455E));
-        shell.addColour (0.62, metal ? juce::Colour (0xFFA7B0C1) : juce::Colour (0xFF1A2132));
-        g.setGradientFill (shell);
-        g.fillPath (body);
-
-        // болты (натяжные)
-        const int lugs = metal ? 7 : 6;
-        for (int i = 0; i < lugs; ++i)
-        {
-            const float th = juce::MathConstants<float>::pi * (0.12f + 0.76f * (float) i / (float) (lugs - 1));
-            const float lx = c.x + rx * std::cos (th) * 0.98f;
-            const float ly = c.y + ry * std::sin (th) + depth * 0.40f;
-            g.setGradientFill (juce::ColourGradient::vertical (juce::Colour (0xFFEFF2F8), ly - 5.0f, juce::Colour (0xFF7C8598), ly + 5.0f));
-            g.fillRoundedRectangle (lx - 2.6f, ly - 5.0f, 5.2f, 10.0f, 1.6f);
-        }
-
-        // обод
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0xFFF4F6FA), c.x - rx, c.y - ry, juce::Colour (0xFF7A8396), c.x + rx, c.y + ry, false));
-        g.fillEllipse (c.x - rx, c.y - ry, rx * 2.0f, ry * 2.0f);
-        g.setColour (juce::Colour (0xFF4A5264));
-        g.drawEllipse (c.x - rx + 2.5f, c.y - ry + 2.5f, rx * 2.0f - 5.0f, ry * 2.0f - 5.0f, 1.0f);
-
-        // пластик
-        const float hx = rx * 0.90f, hy = ry * 0.88f;
-        juce::ColourGradient head (juce::Colour (0xFFFFFFFF), c.x - hx * 0.25f, c.y - hy * 0.35f, juce::Colour (0xFFC9CED9), c.x + hx, c.y + hy, true);
-        g.setGradientFill (head);
-        g.fillEllipse (c.x - hx, c.y - hy, hx * 2.0f, hy * 2.0f);
-        g.setColour (juce::Colour (0x2E000000));
-        g.drawEllipse (c.x - hx * 0.62f, c.y - hy * 0.62f, hx * 1.24f, hy * 1.24f, 1.0f);
-
-        if (metal)   // рычаг подструнника
-        {
-            g.setColour (juce::Colour (0xFF6B7487));
-            g.fillRoundedRectangle (c.x + rx - 3.0f, c.y + ry * 0.2f, 12.0f, 6.0f, 2.0f);
-        }
-
-        if (f > 0.0f)
-        {
-            g.setColour (col::lane (drums::laneOf (a)).withAlpha (0.50f * f));
-            g.fillEllipse (c.x - hx, c.y - hy, hx * 2.0f, hy * 2.0f);
-        }
+        if (f <= 0.0f)
+            return;
+        const auto c = col::lane (drums::laneOf (art));
+        halo (g, box (e), c, f);
+        g.setColour (c.withAlpha (0.42f * f));
+        g.fillEllipse (box (e));
     }
 
-    void kick (juce::Graphics& g, Pt c, float R, float f) const
+    // Барабан: пластик сверху и корпус под ним.
+    static void glowDrum (juce::Graphics& g, Ell head, float depth, A art, float f)
     {
-        halo (g, juce::Rectangle<float> (R * 2.0f, R * 2.0f).withCentre (c), A::Kick, f);
+        if (f <= 0.0f)
+            return;
+        const auto c = col::lane (drums::laneOf (art));
+        halo (g, juce::Rectangle<float> (head.rx * 2.0f, head.ry * 2.0f + depth).withCentre ({ head.cx, head.cy + depth * 0.5f }), c, f);
 
-        g.setColour (juce::Colours::black.withAlpha (0.35f));
-        g.fillEllipse (c.x - R * 1.02f, c.y + R * 0.62f, R * 2.04f, R * 0.7f);
+        juce::Path p;
+        p.startNewSubPath (head.cx + head.rx, head.cy);
+        p.lineTo (head.cx + head.rx, head.cy + depth);
+        p.addArc (head.cx - head.rx, head.cy + depth - head.ry, head.rx * 2.0f, head.ry * 2.0f,
+                  juce::MathConstants<float>::halfPi, juce::MathConstants<float>::pi * 1.5f, false);
+        p.lineTo (head.cx - head.rx, head.cy);
+        p.closeSubPath();
+        p.addEllipse (box (head));
 
-        // сошки
-        for (float side : { -1.0f, 1.0f })
-        {
-            pole (g, Pt (c.x + side * R * 0.95f, c.y + R * 0.25f), Pt (c.x + side * (R + 26.0f), c.y + R * 0.92f), 4.0f);
-            g.setColour (juce::Colour (0xFF39414F));
-            g.fillRoundedRectangle (c.x + side * (R + 26.0f) - 7.0f, c.y + R * 0.92f - 2.0f, 14.0f, 5.0f, 2.0f);
-        }
-
-        // корпус
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0xFF2B3550), c.x - R * 0.4f, c.y - R * 0.5f, juce::Colour (0xFF0A0D14), c.x + R, c.y + R, true));
-        g.fillEllipse (c.x - R, c.y - R, R * 2.0f, R * 2.0f);
-
-        // обод
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0xFFF4F6FA), c.x - R, c.y - R, juce::Colour (0xFF6F7890), c.x + R, c.y + R, false));
-        g.fillEllipse (c.x - R * 0.97f, c.y - R * 0.97f, R * 1.94f, R * 1.94f);
-
-        // болты по кругу
-        for (int i = 0; i < 12; ++i)
-        {
-            const float th = juce::MathConstants<float>::twoPi * (float) i / 12.0f;
-            const Pt p (c.x + std::cos (th) * R * 0.955f, c.y + std::sin (th) * R * 0.955f);
-            g.setColour (juce::Colour (0xFF39414F));
-            g.fillEllipse (p.x - 2.6f, p.y - 2.6f, 5.2f, 5.2f);
-            g.setColour (juce::Colour (0xFFD5DAE4));
-            g.fillEllipse (p.x - 1.4f, p.y - 1.4f, 2.8f, 2.8f);
-        }
-
-        // пластик
-        const float hr = R * 0.86f;
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0xFFFFFFFF), c.x - hr * 0.3f, c.y - hr * 0.4f, juce::Colour (0xFFC3C9D6), c.x + hr, c.y + hr, true));
-        g.fillEllipse (c.x - hr, c.y - hr, hr * 2.0f, hr * 2.0f);
-        g.setColour (juce::Colour (0x26000000));
-        g.drawEllipse (c.x - hr * 0.72f, c.y - hr * 0.72f, hr * 1.44f, hr * 1.44f, 1.0f);
-
-        // логотип
-        g.setColour (juce::Colour (0xFF1A2132));
-        g.setFont (juce::Font (juce::FontOptions (26.0f, juce::Font::bold | juce::Font::italic)));
-        g.drawText ("dr. Ums", juce::Rectangle<float> (c.x - hr, c.y - 16.0f, hr * 2.0f, 32.0f), juce::Justification::centred, false);
-        g.setColour (col::accent);
-        g.fillRoundedRectangle (c.x - hr * 0.38f, c.y + 17.0f, hr * 0.76f, 3.0f, 1.5f);
-
-        if (f > 0.0f)
-        {
-            g.setColour (col::lane (drums::Lane::Kick).withAlpha (0.50f * f));
-            g.fillEllipse (c.x - hr, c.y - hr, hr * 2.0f, hr * 2.0f);
-        }
-
-        // педаль
-        g.setGradientFill (juce::ColourGradient::vertical (juce::Colour (0xFF6B7487), c.y + R - 4.0f, juce::Colour (0xFF39414F), c.y + R + 22.0f));
-        g.fillRoundedRectangle (c.x - 15.0f, c.y + R - 6.0f, 30.0f, 28.0f, 5.0f);
-        g.setColour (juce::Colour (0xFF9AA3B5));
-        g.fillRoundedRectangle (c.x - 12.0f, c.y + R + 2.0f, 24.0f, 5.0f, 2.0f);
+        g.setGradientFill (juce::ColourGradient::vertical (c.withAlpha (0.44f * f), head.cy - head.ry,
+                                                           c.withAlpha (0.24f * f), head.cy + depth + head.ry));
+        g.fillPath (p);
+        g.setColour (c.withAlpha (0.22f * f));
+        g.fillEllipse (box (head));
     }
 
-    void drawKit (juce::Graphics& g) const
+    void drawHighlights (juce::Graphics& g) const
     {
-        // стойки
-        pole (g, Pt (92.0f, 70.0f),  Pt (104.0f, 338.0f)); tripod (g, Pt (104.0f, 338.0f), 40.0f);
-        pole (g, Pt (205.0f, 50.0f), Pt (214.0f, 300.0f));
-        pole (g, Pt (300.0f, 40.0f), Pt (300.0f, 150.0f));
-        pole (g, Pt (372.0f, 82.0f), Pt (372.0f, 160.0f));
-        pole (g, Pt (484.0f, 58.0f), Pt (486.0f, 330.0f)); tripod (g, Pt (486.0f, 330.0f), 40.0f);
-        pole (g, Pt (528.0f, 140.0f), Pt (532.0f, 336.0f)); tripod (g, Pt (532.0f, 336.0f), 38.0f);
-        pole (g, Pt (52.0f, 186.0f), Pt (52.0f, 348.0f), 3.0f); tripod (g, Pt (52.0f, 348.0f), 34.0f);
+        glowDisc (g, kCrashFarLeft, A::CrashFarLeft, fl (A::CrashFarLeft));
+        glowDisc (g, kCrashLeft,    A::CrashLeft,    fl (A::CrashLeft));
+        glowDisc (g, kSplash,       A::Splash,       fl (A::Splash));
+        glowDisc (g, kChina,        A::China,        fl (A::China));
+        glowDisc (g, kCrashRight,   A::CrashRight,   fl (A::CrashRight));
+        glowDisc (g, kRide,         A::RideBow,      flAny ({ A::RideBow, A::RideBell }));
+        glowDisc (g, kHat,          A::HatClosedTip, flAny ({ A::HatClosedTip, A::HatClosedEdge, A::HatOpen1,
+                                                              A::HatOpen2, A::HatOpen3, A::HatPedal }));
 
-        // тарелки
-        cymbal (g, Pt (92.0f, 66.0f),   60.0f, 22.0f, A::CrashFarLeft, fl (A::CrashFarLeft));
-        cymbal (g, Pt (205.0f, 46.0f),  54.0f, 19.0f, A::CrashLeft,    fl (A::CrashLeft));
-        cymbal (g, Pt (300.0f, 34.0f),  27.0f, 9.0f,  A::Splash,       fl (A::Splash), true);
-        cymbal (g, Pt (372.0f, 80.0f),  38.0f, 14.0f, A::China,        fl (A::China), true);
-        cymbal (g, Pt (484.0f, 54.0f),  62.0f, 22.0f, A::CrashRight,   fl (A::CrashRight));
-        cymbal (g, Pt (528.0f, 134.0f), 58.0f, 21.0f, A::RideBow,      flAny ({ A::RideBow, A::RideBell }));
+        glowDrum (g, { 420.0f, 210.0f, 92.0f, 38.0f },  140.0f, A::TomRack1,  fl (A::TomRack1));
+        glowDrum (g, { 669.0f, 212.0f, 97.0f, 40.0f },  140.0f, A::TomRack2,  fl (A::TomRack2));
+        glowDrum (g, { 275.0f, 352.0f, 108.0f, 34.0f }, 118.0f, A::Snare,     flAny ({ A::Snare, A::SnareCross }));
+        glowDrum (g, { 985.0f, 404.0f, 78.0f, 31.0f },  205.0f, A::TomFloor2, fl (A::TomFloor2));
+        glowDrum (g, { 806.0f, 380.0f, 103.0f, 37.0f }, 230.0f, A::TomFloor1, fl (A::TomFloor1));
 
-        // стойка рэк-томов
-        pole (g, Pt (293.0f, 150.0f), Pt (293.0f, 215.0f), 5.0f);
-        pole (g, Pt (236.0f, 142.0f), Pt (350.0f, 142.0f), 4.0f);
-
-        // тома
-        drum (g, Pt (228.0f, 150.0f), 52.0f, 34.0f, 38.0f, A::TomRack1, fl (A::TomRack1), false, false);
-        drum (g, Pt (358.0f, 150.0f), 52.0f, 34.0f, 38.0f, A::TomRack2, fl (A::TomRack2), false, false);
-        drum (g, Pt (524.0f, 262.0f), 46.0f, 30.0f, 52.0f, A::TomFloor2, fl (A::TomFloor2), false, true);
-        drum (g, Pt (436.0f, 268.0f), 58.0f, 38.0f, 56.0f, A::TomFloor1, fl (A::TomFloor1), false, true);
-
-        // бочка
-        kick (g, Pt (293.0f, 268.0f), 80.0f, fl (A::Kick));
-
-        // снейр на стойке
-        tripod (g, Pt (140.0f, 290.0f), 38.0f);
-        pole (g, Pt (140.0f, 276.0f), Pt (140.0f, 290.0f), 4.0f);
-        drum (g, Pt (140.0f, 240.0f), 52.0f, 32.0f, 28.0f, A::Snare, flAny ({ A::Snare, A::SnareCross }), true, false);
-
-        // хай-хэт
-        const float hat = flAny ({ A::HatClosedTip, A::HatClosedEdge, A::HatOpen1, A::HatOpen2, A::HatOpen3, A::HatPedal });
-        cymbal (g, Pt (52.0f, 190.0f), 44.0f, 13.0f, A::HatClosedTip, hat, true);
-        cymbal (g, Pt (52.0f, 178.0f), 44.0f, 13.0f, A::HatClosedTip, hat);
-        g.setGradientFill (juce::ColourGradient::vertical (juce::Colour (0xFF6B7487), 338.0f, juce::Colour (0xFF39414F), 366.0f));
-        g.fillRoundedRectangle (30.0f, 342.0f, 46.0f, 20.0f, 4.0f);
+        glowDisc (g, kKick, A::Kick, fl (A::Kick));
     }
 
+    juce::Image image, scaled;
     std::array<float, (size_t) drums::kNumArts> flashes {};
 };
 
