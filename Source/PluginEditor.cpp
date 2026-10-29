@@ -17,9 +17,9 @@ DrUmsEditor::DrUmsEditor (DrUmsProcessor& p)
     setLookAndFeel (&laf);
     addAndMakeVisible (content);
 
-    for (auto* c : std::initializer_list<juce::Component*> { &kit, &grooves, &libraryBtn, &styleBtn, &modeBox,
-                                                              &partBox, &sigBox, &diceAll, &gearBtn, &playBtn,
-                                                              &preview, &heartBtn, &status })
+    for (auto* c : std::initializer_list<juce::Component*> { &backdrop, &kit, &grooves, &libraryBtn, &styleBtn,
+                                                              &modeBox, &partBox, &sigBox, &diceAll, &gearBtn,
+                                                              &playBtn, &preview, &heartBtn, &status })
         content.addAndMakeVisible (c);
 
     for (int i = 0; i < 4; ++i)
@@ -34,34 +34,38 @@ DrUmsEditor::DrUmsEditor (DrUmsProcessor& p)
         laneDice[i]->onClick = [this, lane] { proc.randomizeLane (lane); };
         laneLock[i]->onClick = [this, i, lane] { proc.setLocked (lane, laneLock[i]->getToggleState()); };
 
-        laneDice[i]->setBounds (3, 143 + i * 98, 68, 70);
-        laneLock[i]->setBounds (75, 143 + i * 98, 76, 70);
+        laneLock[i]->setTint (ui::col::lane (lane));
+        laneDice[i]->setBounds (16, 164 + i * 92, 60, 60);
+        laneLock[i]->setBounds (88, 164 + i * 92, 60, 60);
     }
 
-    libraryBtn.setBounds (10, 15, 150, 34);
-    diceAll.setBounds (42, 58, 76, 76);
-    styleBtn.setBounds (160, 80, 110, 36);
-    partBox.setBounds (285, 77, 360, 40);
-    modeBox.setBounds (326, 16, 150, 38);
-    playBtn.setBounds (492, 13, 42, 42);
-    gearBtn.setBounds (696, 12, 66, 66);
-    sigBox.setBounds (706, 84, 52, 34);
-    kit.setBounds (157, 131, 609, 394);
-    grooves.setBounds (0, 131, kW, 394);
-    preview.setBounds (0, 543, kW, 60);
-    heartBtn.setBounds (716, 538, 50, 50);
-    status.setBounds (164, 498, 380, 22);
+    backdrop.setBounds (0, 0, kW, kH);
+    libraryBtn.setBounds (14, 10, 206, 46);
+    styleBtn.setBounds (228, 10, 150, 46);
+    sigBox.setBounds (386, 10, 76, 46);
+    modeBox.setBounds (476, 14, 150, 38);
+    playBtn.setBounds (638, 8, 50, 50);
+    gearBtn.setBounds (704, 10, 46, 46);
+    diceAll.setBounds (22, 70, 66, 66);
+    partBox.setBounds (176, 82, 574, 44);
+    kit.setBounds (170, 158, 582, 360);
+    grooves.setBounds (14, 158, 738, 360);
+    preview.setBounds (14, 540, 676, 60);
+    heartBtn.setBounds (698, 540, 54, 60);
+    status.setBounds (188, 488, 380, 22);
 
-    status.setFont (ui::plainFont (13.0f));
-    status.setColour (juce::Label::textColourId, juce::Colours::black);
+    status.setFont (ui::boldFont (12.0f));
+    status.setColour (juce::Label::textColourId, ui::col::text.withAlpha (0.85f));
     status.setJustificationType (juce::Justification::centredLeft);
     status.setInterceptsMouseClicks (false, false);
 
     modeBox.setItems ({ "EDIT", "GROOVES" });
+    modeBox.fontSize = 13.0f;
     juce::StringArray parts;
     for (int i = 0; i < kNumParts; ++i)
         parts.add (juce::String (partName ((Part) i)).toLowerCase());
     partBox.setItems (parts);
+    partBox.fontSize = 14.0f;
 
     libraryBtn.onClick = [this] { showLibraryMenu(); };
     styleBtn.onClick   = [this] { showStyleMenu(); };
@@ -117,7 +121,7 @@ DrUmsEditor::~DrUmsEditor()
 
 void DrUmsEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colours::white);
+    g.fillAll (ui::col::bg0);
 }
 
 void DrUmsEditor::resized()
@@ -129,8 +133,8 @@ void DrUmsEditor::resized()
 
 void DrUmsEditor::refresh()
 {
-    libraryBtn.setLabel (proc.currentMap().name);
-    styleBtn.setLabel (juce::String (styleName (proc.getStyle())));
+    libraryBtn.setValue (proc.currentMap().name);
+    styleBtn.setValue (juce::String (styleName (proc.getStyle())));
     partBox.setSelected ((int) proc.getPart());
     sigBox.setValue (proc.getNumerator(), proc.getDenominator());
 
@@ -161,7 +165,10 @@ void DrUmsEditor::setGrooveMode (bool on)
         laneLock[i]->setVisible (! on);
     }
 
+    if (on)
+        grooves.setBounds (14, 76, 738, 442);   // вкладка занимает и место скрытых органов управления
     grooves.setVisible (on);
+    backdrop.setEditLayout (! on);
     refresh();
 }
 
@@ -171,13 +178,13 @@ void DrUmsEditor::timerCallback()
     if (playBtn.getToggleState() != on)
         playBtn.setToggleState (on, juce::dontSendNotification);
 
-    for (size_t l = 0; l < 4; ++l)
+    for (size_t a = 0; a < lastHits.size(); ++a)
     {
-        const auto c = proc.laneHits[l].load();
-        if (c != lastHits[l])
+        const auto c = proc.artHits[a].load();
+        if (c != lastHits[a])
         {
-            lastHits[l] = c;
-            kit.flash ((int) l);
+            lastHits[a] = c;
+            kit.flash ((int) a);
         }
     }
     kit.decay();

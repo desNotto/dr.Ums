@@ -42,6 +42,7 @@ target_sources(DrUms PRIVATE
     Source/Model.cpp
     Source/DrumMaps.cpp
     Source/Generator.cpp
+    Source/Corpus.cpp
     Source/MidiTools.cpp
     Source/GrooveLibrary.cpp
     Source/PluginProcessor.cpp

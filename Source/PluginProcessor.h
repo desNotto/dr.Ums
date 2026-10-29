@@ -78,7 +78,8 @@ public:
     void setPlaying (bool b) { playing.store (b); }
     bool isPlaying() const { return playing.load(); }
     double getPlayBeat() const { return playing.load() ? playBeatAtomic.load() : -1.0; }
-    std::array<std::atomic<juce::uint32>, (size_t) drums::kNumLanes> laneHits;
+    // счётчики ударов по голосам: интерфейс по ним подсвечивает барабаны и тарелки
+    std::array<std::atomic<juce::uint32>, (size_t) drums::kNumArts> artHits;
 
 private:
     void changed();

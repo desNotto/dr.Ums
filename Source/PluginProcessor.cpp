@@ -7,7 +7,7 @@ DrUmsProcessor::DrUmsProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       rng ((juce::int64) juce::Time::currentTimeMillis())
 {
-    for (auto& a : laneHits)
+    for (auto& a : artHits)
         a.store (0);
 
     pendingOffs.reserve (512);
@@ -114,8 +114,7 @@ void DrUmsProcessor::randomizeLane (Lane lane)
         return;
 
     audition.reset();
-    const auto fresh = generate (style, part, num, den, rng);
-    pattern = withLane (pattern, fresh, lane);
+    pattern = regenerateLane (pattern, lane, rng);
     changed();
 }
 
@@ -302,7 +301,7 @@ void DrUmsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
                     const int off = juce::jlimit (0, n - 1, baseOffset + (int) ((e.beat - from) / beatsPerSample));
                     midi.addEvent (juce::MidiMessage::noteOn (kMidiChannel, e.note, (juce::uint8) e.velocity), off);
                     pendingOffs.push_back ({ e.note, off + noteLen });
-                    laneHits[(size_t) e.lane].fetch_add (1);
+                    artHits[(size_t) e.art].fetch_add (1);
                 }
             };
 

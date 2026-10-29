@@ -53,7 +53,7 @@ std::vector<PlayEvent> buildPlayEvents (const Pattern& pattern, const DrumMap& m
         const int note = map.noteFor (h.art);
         if (note < 0)
             continue;
-        ev.push_back ({ h.step * 0.25, note, h.velocity, (int) laneOf (h.art) });
+        ev.push_back ({ h.step * 0.25, note, h.velocity, (int) laneOf (h.art), (int) h.art });
     }
 
     std::sort (ev.begin(), ev.end(), [] (const PlayEvent& a, const PlayEvent& b) { return a.beat < b.beat; });

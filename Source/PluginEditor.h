@@ -2,6 +2,60 @@
 
 #include "Components.h"
 
+// Фон окна: градиент, панели рядов Random/Lock с подписями дорожек.
+class Backdrop : public juce::Component
+{
+public:
+    Backdrop() { setInterceptsMouseClicks (false, false); }
+
+    void setEditLayout (bool on)
+    {
+        if (editLayout != on)
+        {
+            editLayout = on;
+            repaint();
+        }
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        const auto b = getLocalBounds().toFloat();
+        g.setGradientFill (juce::ColourGradient::vertical (ui::col::bg1, b.getY(), ui::col::bg0, b.getBottom()));
+        g.fillRect (b);
+
+        if (! editLayout)
+            return;
+
+        static const drums::Lane lanes[4] = { drums::Lane::Cymbals, drums::Lane::Toms, drums::Lane::Snare, drums::Lane::Kick };
+        const juce::String names[4] = { ui::ru ("ТАРЕЛКИ"), ui::ru ("ТОМЫ"), ui::ru ("СНЕЙР"), ui::ru ("КИК") };
+
+        for (int i = 0; i < 4; ++i)
+        {
+            const juce::Rectangle<float> row (8.0f, 158.0f + (float) i * 92.0f, 150.0f, 84.0f);
+            g.setColour (ui::col::panel);
+            g.fillRoundedRectangle (row, 14.0f);
+            g.setColour (ui::col::line);
+            g.drawRoundedRectangle (row.reduced (0.5f), 14.0f, 1.0f);
+
+            const auto c = ui::col::lane (lanes[i]);
+            g.setColour (c);
+            g.fillEllipse (row.getX() + 14.0f, row.getBottom() - 15.5f, 7.0f, 7.0f);
+            g.setColour (ui::col::dim);
+            g.setFont (ui::boldFont (9.5f, 0.1f));
+            g.drawText (names[i], juce::Rectangle<float> (row.getX() + 28.0f, row.getBottom() - 19.0f, 100.0f, 14.0f),
+                        juce::Justification::centredLeft, false);
+        }
+
+        g.setColour (ui::col::dim);
+        g.setFont (ui::boldFont (9.5f, 0.1f));
+        g.drawText (ui::ru ("СЛУЧАЙНЫЙ"), juce::Rectangle<float> (96.0f, 92.0f, 90.0f, 12.0f), juce::Justification::centredLeft, false);
+        g.drawText (ui::ru ("ПАТТЕРН"), juce::Rectangle<float> (96.0f, 105.0f, 90.0f, 12.0f), juce::Justification::centredLeft, false);
+    }
+
+private:
+    bool editLayout = true;
+};
+
 class DrUmsEditor : public juce::AudioProcessorEditor,
                     public juce::DragAndDropContainer,
                     private juce::ChangeListener,
@@ -33,19 +87,20 @@ private:
     DrUmsProcessor& proc;
     ui::ReferenceLookAndFeel laf;
 
-    juce::Component content;   // рисуется в координатах референса 766x623 и масштабируется
+    juce::Component content;   // рисуется в логических координатах 766x623 и масштабируется
+    Backdrop backdrop;
     ui::KitView kit;
     ui::PreviewView preview;
     ui::GroovesView grooves;
-    ui::BoxButton libraryBtn, styleBtn;
+    ui::DropButton libraryBtn { ui::ru ("БИБЛИОТЕКА") }, styleBtn { ui::ru ("СТИЛЬ") };
     ui::SegmentedBox modeBox, partBox;
-    ui::SigBox sigBox;
+    ui::SigBox sigBox { ui::ru ("РАЗМЕР") };
     ui::IconButton diceAll { ui::Icon::Dice }, gearBtn { ui::Icon::Gear },
                    playBtn { ui::Icon::Play }, heartBtn { ui::Icon::Heart };
     std::unique_ptr<ui::IconButton> laneDice[4], laneLock[4];
     juce::Label status;
 
-    std::array<juce::uint32, 4> lastHits {};
+    std::array<juce::uint32, (size_t) drums::kNumArts> lastHits {};
     bool grooveMode = false;
     bool wasPlayingUi = false;
     int shownGrooveId = -1;

@@ -19,6 +19,7 @@ struct PlayEvent
     int note = 0;
     int velocity = 100;
     int lane = 0;
+    int art = 0;
 };
 
 // События для кнопки Play, отсортированные по времени (в четвертных от начала паттерна).
