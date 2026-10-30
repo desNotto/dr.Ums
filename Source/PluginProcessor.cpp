@@ -63,12 +63,36 @@ void DrUmsProcessor::loadSettings()
         folder = defaultMidiFolder();
 
     library.setFolder (folder);
+
+    // язык: сохранённый выбор, а если его нет, язык системы
+    const auto savedLang = props.getValue ("language");
+    if (savedLang == "ru")       loc::set (loc::Lang::Ru);
+    else if (savedLang == "en")  loc::set (loc::Lang::En);
+    else loc::set (juce::SystemStats::getUserLanguage().startsWithIgnoreCase ("ru") ? loc::Lang::Ru : loc::Lang::En);
+
+    savedEditorWidth = props.getIntValue ("editorWidth", 0);
 }
 
 void DrUmsProcessor::saveSettings() const
 {
     juce::PropertiesFile props (settingsOptions());
     props.setValue ("midiFolder", library.getFolder().getFullPathName());
+    props.setValue ("language", loc::isRu() ? "ru" : "en");
+    props.saveIfNeeded();
+}
+
+void DrUmsProcessor::setLanguage (loc::Lang l)
+{
+    loc::set (l);
+    saveSettings();
+    sendChangeMessage();
+}
+
+void DrUmsProcessor::saveEditorWidth (int width)
+{
+    savedEditorWidth = width;
+    juce::PropertiesFile props (settingsOptions());
+    props.setValue ("editorWidth", width);
     props.saveIfNeeded();
 }
 

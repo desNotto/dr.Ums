@@ -38,8 +38,8 @@ juce_add_plugin(DrUms
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
     COPY_PLUGIN_AFTER_BUILD     FALSE)
 
-# Картинка барабанной установки вшивается в плагин (см. Resources/kit.png)
-juce_add_binary_data(DrUmsData SOURCES Resources/kit.png)
+# Картинки вшиваются в плагин: барабанная установка (kit.png) и значок блокировки (rat.png)
+juce_add_binary_data(DrUmsData SOURCES Resources/kit.png Resources/rat.png)
 set_target_properties(DrUmsData PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 target_sources(DrUms PRIVATE

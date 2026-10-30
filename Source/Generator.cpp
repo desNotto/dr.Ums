@@ -100,7 +100,7 @@ namespace
     }
 
     // ---------------------------------------------------------------- профиль стиля/части
-    enum class KickMode { Chug, Gallop, Rock, TwoStep };
+    enum class KickMode { Chug, Gallop, Rock, TwoStep, Slow };
 
     struct Prof
     {
@@ -109,6 +109,8 @@ namespace
         float kickDouble = 0.0f;     // шанс добавить второй кик на следующей 1/16
         float crash1 = 0.0f;         // крэш на первой доле 1-го такта
         float crash3 = 0.0f;         // крэш на первой доле 3-го такта
+        float crashEvery = 0.0f;     // шанс крэша на первой доле каждого такта (в песнях это очень частый приём)
+        float tribalChance = 0.0f;   // шанс томового "племенного" грува (post-metal)
         float endAccent = 0.0f;      // сплэш/чайна перед следующей секцией
         float accentOnKick = 0.0f;   // чайна/крэш в унисон с кик-ударами (брейкдауны)
         float fill = 0.0f;           // шанс филла в последнем такте
@@ -125,33 +127,48 @@ namespace
             case Style::Metalcore:   f.kick = KickMode::Gallop;  f.kickDouble = 0.30f; f.fill = 0.40f; break;
             case Style::IndieRock:   f.kick = KickMode::Rock;                          f.fill = 0.25f; break;
             case Style::DrumAndBass: f.kick = KickMode::TwoStep;                       f.fill = 0.30f; break;
+            case Style::PostMetal:   f.kick = KickMode::Slow;                          f.fill = 0.35f; break;
         }
+
+        const bool metalish = style == Style::Djent || style == Style::Metalcore;
 
         switch (part)
         {
             case Part::Intro:
                 f.kickKeep = 0.5f;  f.kickDouble = 0.0f;
                 f.crash1 = 0.5f;    f.crash3 = 0.1f;  f.fill = 0.10f;
+                f.crashEvery = metalish ? 0.20f : 0.05f;
+                if (style == Style::PostMetal) { f.crash1 = 0.6f; f.crashEvery = 0.10f; f.tribalChance = 0.5f; }
                 break;
             case Part::Verse:
                 f.fill *= 0.7f;     f.crash1 = 0.35f; f.crash3 = 0.10f;
+                f.crashEvery = metalish ? 0.25f : 0.05f;
+                if (style == Style::PostMetal) { f.crashEvery = 0.15f; f.tribalChance = 0.2f; }
                 break;
             case Part::Bridge:
                 f.kickKeep = 0.6f;  f.kickDouble *= 0.3f;
                 f.crash1 = 0.2f;    f.crash3 = 0.05f; f.fill = 0.45f;
+                f.crashEvery = metalish ? 0.10f : 0.03f;
+                if (style == Style::PostMetal) { f.tribalChance = 0.85f; f.crashEvery = 0.10f; }
                 break;
             case Part::Chorus:
                 f.kickDouble *= 1.3f;
                 f.crash1 = 0.95f;   f.crash3 = 0.55f; f.endAccent = 0.25f; f.fill = 0.5f;
+                f.crashEvery = metalish ? 0.60f : 0.30f;
+                if (style == Style::PostMetal) { f.crashEvery = 0.70f; f.tribalChance = 0.3f; }
                 break;
             case Part::Fill:
                 f.fill = 1.0f;      f.fillPart = true; f.crash1 = 0.3f;
+                f.crashEvery = metalish ? 0.30f : 0.05f;
                 break;
             case Part::Breakdown:
                 f.crash1 = 0.9f;    f.crash3 = 0.6f;  f.endAccent = 0.3f; f.fill = 0.3f;
+                f.crashEvery = metalish ? 0.60f : 0.30f;
                 if (style == Style::Djent)       { f.kickDouble = 0.35f; f.accentOnKick = 0.35f; }
                 if (style == Style::Metalcore)   { f.kick = KickMode::Chug; f.kickDouble = 0.30f; f.accentOnKick = 0.30f; }
                 if (style == Style::IndieRock)   { f.tomGroove = true; f.kickKeep = 0.7f; }
+                if (style == Style::PostMetal)   { f.kick = KickMode::Chug; f.kickKeep = 0.65f; f.kickDouble = 0.15f;
+                                                   f.accentOnKick = 0.25f; f.crashEvery = 0.5f; }
                 break;
         }
         return f;
@@ -208,6 +225,20 @@ namespace
                 if (rng.nextFloat() < 0.35f) out.push_back ((spb * 3) / 16);
                 if (rng.nextFloat() < 0.20f) out.push_back ((spb * 7) / 16);
                 break;
+
+            case KickMode::Slow:
+            {
+                out.push_back (0);
+                const int extras[] = { (spb * 3) / 8, (spb * 5) / 8, (spb * 7) / 8, (spb * 3) / 16, (spb * 7) / 16 };
+                int added = 0;
+                for (int e : extras)
+                    if (added < 2 && rng.nextFloat() < 0.28f)
+                    {
+                        out.push_back (e);
+                        ++added;
+                    }
+                break;
+            }
         }
 
         std::vector<int> res;
@@ -247,7 +278,7 @@ namespace
     }
 
     // ---------------------------------------------------------------- снейр: варианты
-    enum class SnVar { Back, BackGhost, BackGhostDense, Half, HalfGhost, Cross, Double };
+    enum class SnVar { Back, BackGhost, BackGhostDense, Half, HalfGhost, Cross, Double, None };
 
     std::vector<std::pair<SnVar, float>> snareTable (Style s, Part p)
     {
@@ -298,28 +329,45 @@ namespace
                     case Part::Breakdown: return { { V::Half, .50f }, { V::HalfGhost, .30f }, { V::Back, .20f } };
                 }
                 break;
+            case Style::PostMetal:
+                switch (p)
+                {
+                    case Part::Intro:     return { { V::None, .45f }, { V::Cross, .20f }, { V::Half, .35f } };
+                    case Part::Verse:     return { { V::Half, .45f }, { V::HalfGhost, .25f }, { V::None, .10f }, { V::Cross, .10f }, { V::Back, .10f } };
+                    case Part::Bridge:    return { { V::None, .45f }, { V::Half, .30f }, { V::HalfGhost, .15f }, { V::Cross, .10f } };
+                    case Part::Chorus:    return { { V::Half, .55f }, { V::HalfGhost, .15f }, { V::Back, .20f }, { V::Double, .10f } };
+                    case Part::Fill:      return { { V::Half, .50f }, { V::Back, .30f }, { V::HalfGhost, .20f } };
+                    case Part::Breakdown: return { { V::Half, .75f }, { V::HalfGhost, .15f }, { V::Back, .10f } };
+                }
+                break;
         }
         return { { V::Back, 1.0f } };
     }
 
-    // Гост-ноты вокруг основного удара снейра: позиции 16-х до и после него.
+    // Гост-ноты вокруг основного удара снейра. В песнях чаще всего они стоят за 3 шестнадцатых
+    // до или после основного удара, реже за 2, совсем редко за 1.
     void addGhostsAround (HitVec& snare, const HitVec& kicks, int mainStep, int barStart, int barEnd,
                           float p, int velBase, juce::Random& rng)
     {
-        for (int d : { -3, -1, 1, 3 })
+        static const std::pair<int, float> offsets[] = { { -3, 1.0f }, { 3, 0.95f }, { -2, 0.55f }, { 2, 0.40f },
+                                                          { 1, 0.33f }, { -4, 0.40f } };
+        for (const auto& o : offsets)
         {
-            const int gs = mainStep + d;
+            const int gs = mainStep + o.first;
             if (gs < barStart || gs >= barEnd || hasAt (snare, gs))
                 continue;
             if (hasAt (kicks, gs) && rng.nextFloat() < 0.6f)
                 continue;
-            if (rng.nextFloat() < p)
+            if (rng.nextFloat() < p * o.second * 1.25f)
                 snare.push_back ({ gs, Art::Snare, jit (rng, velBase, 7) });
         }
     }
 
     void snareBar (HitVec& snare, const HitVec& kicks, SnVar v, const Grid& g, int off, juce::Random& rng)
     {
+        if (v == SnVar::None)
+            return;
+
         const int n = g.groups();
         std::vector<int> mains;
 
@@ -353,44 +401,44 @@ namespace
     }
 
     // ---------------------------------------------------------------- тарелки: ведущие голоса
-    enum class Lead { Hat8, Hat8Open, Hat16, HatQuarter, Ride8, RideQuarter, RideBell, CrashLead, ChinaLead, OpenHatLead };
+    enum class Lead { Hat8, Hat8Open, Hat16, HatQuarter, Ride8, RideQuarter, RideBell, CrashLead, ChinaLead, OpenHatLead, CrashSwell };
+
+    // Веса подобраны по разбору ~70 тысяч тактов из присланных песен: в металле ведущим
+    // чаще всего бывает крэш (в четверти или в восьмые), потом хэт, чайна заметно реже,
+    // райд встречается редко.
+    std::vector<std::pair<Lead, float>> metalLeads (Part p, bool djent)
+    {
+        using L = Lead;
+        const float china = djent ? 1.3f : 1.0f;
+        const float hat16 = djent ? 1.0f : 1.3f;
+        switch (p)
+        {
+            case Part::Intro:     return { { L::HatQuarter, .28f }, { L::RideQuarter, .18f }, { L::RideBell, .14f }, { L::Hat8, .14f }, { L::Hat8Open, .10f }, { L::CrashSwell, .10f }, { L::CrashLead, .06f } };
+            case Part::Verse:     return { { L::Hat8, .22f }, { L::Hat8Open, .20f }, { L::Hat16, .08f * hat16 }, { L::HatQuarter, .08f }, { L::CrashLead, .22f }, { L::ChinaLead, .04f * china }, { L::Ride8, .04f }, { L::OpenHatLead, .08f }, { L::RideBell, .04f } };
+            case Part::Bridge:    return { { L::RideQuarter, .20f }, { L::RideBell, .20f }, { L::HatQuarter, .18f }, { L::Ride8, .12f }, { L::Hat8, .10f }, { L::CrashLead, .10f }, { L::CrashSwell, .10f } };
+            case Part::Chorus:    return { { L::CrashLead, .38f }, { L::Hat8Open, .16f }, { L::OpenHatLead, .10f }, { L::Hat8, .10f }, { L::Ride8, .06f }, { L::ChinaLead, .10f * china }, { L::HatQuarter, .04f }, { L::Hat16, .04f * hat16 } };
+            case Part::Fill:      return { { L::Hat8, .40f }, { L::CrashLead, .20f }, { L::Ride8, .20f }, { L::HatQuarter, .20f } };
+            case Part::Breakdown: return { { L::CrashLead, .36f }, { L::ChinaLead, .24f * china }, { L::HatQuarter, .12f }, { L::OpenHatLead, .10f }, { L::Hat8, .08f }, { L::RideBell, .06f }, { L::Ride8, .04f } };
+        }
+        return { { L::Hat8, 1.0f } };
+    }
 
     std::vector<std::pair<Lead, float>> leadTable (Style s, Part p)
     {
         using L = Lead;
         switch (s)
         {
-            case Style::Djent:
-                switch (p)
-                {
-                    case Part::Intro:     return { { L::HatQuarter, .30f }, { L::RideQuarter, .25f }, { L::RideBell, .20f }, { L::Hat8, .15f }, { L::Hat8Open, .10f } };
-                    case Part::Verse:     return { { L::Hat8, .28f }, { L::Hat8Open, .22f }, { L::Hat16, .10f }, { L::Ride8, .15f }, { L::RideBell, .10f }, { L::ChinaLead, .08f }, { L::HatQuarter, .07f } };
-                    case Part::Bridge:    return { { L::RideQuarter, .30f }, { L::RideBell, .30f }, { L::HatQuarter, .20f }, { L::Ride8, .20f } };
-                    case Part::Chorus:    return { { L::Ride8, .22f }, { L::CrashLead, .25f }, { L::OpenHatLead, .20f }, { L::ChinaLead, .12f }, { L::Hat8Open, .21f } };
-                    case Part::Fill:      return { { L::Hat8, .45f }, { L::Ride8, .30f }, { L::HatQuarter, .25f } };
-                    case Part::Breakdown: return { { L::ChinaLead, .32f }, { L::CrashLead, .20f }, { L::HatQuarter, .15f }, { L::RideBell, .15f }, { L::OpenHatLead, .18f } };
-                }
-                break;
-            case Style::Metalcore:
-                switch (p)
-                {
-                    case Part::Intro:     return { { L::HatQuarter, .25f }, { L::RideQuarter, .25f }, { L::RideBell, .20f }, { L::Hat8Open, .15f }, { L::Hat8, .15f } };
-                    case Part::Verse:     return { { L::Hat8, .22f }, { L::Hat16, .15f }, { L::Hat8Open, .20f }, { L::Ride8, .18f }, { L::CrashLead, .10f }, { L::OpenHatLead, .15f } };
-                    case Part::Bridge:    return { { L::RideBell, .30f }, { L::RideQuarter, .30f }, { L::HatQuarter, .20f }, { L::Ride8, .20f } };
-                    case Part::Chorus:    return { { L::CrashLead, .30f }, { L::Ride8, .18f }, { L::OpenHatLead, .22f }, { L::ChinaLead, .15f }, { L::Hat8Open, .15f } };
-                    case Part::Fill:      return { { L::Hat8, .45f }, { L::Ride8, .30f }, { L::Hat8Open, .25f } };
-                    case Part::Breakdown: return { { L::ChinaLead, .30f }, { L::CrashLead, .25f }, { L::OpenHatLead, .15f }, { L::RideBell, .15f }, { L::HatQuarter, .15f } };
-                }
-                break;
+            case Style::Djent:     return metalLeads (p, true);
+            case Style::Metalcore: return metalLeads (p, false);
             case Style::IndieRock:
                 switch (p)
                 {
                     case Part::Intro:     return { { L::HatQuarter, .40f }, { L::Hat8, .30f }, { L::RideQuarter, .30f } };
                     case Part::Verse:     return { { L::Hat8, .30f }, { L::Hat16, .18f }, { L::HatQuarter, .14f }, { L::Ride8, .20f }, { L::Hat8Open, .18f } };
                     case Part::Bridge:    return { { L::HatQuarter, .30f }, { L::RideQuarter, .30f }, { L::RideBell, .20f }, { L::Ride8, .20f } };
-                    case Part::Chorus:    return { { L::OpenHatLead, .28f }, { L::Ride8, .22f }, { L::CrashLead, .20f }, { L::Hat8Open, .30f } };
+                    case Part::Chorus:    return { { L::OpenHatLead, .26f }, { L::Ride8, .20f }, { L::CrashLead, .22f }, { L::Hat8Open, .30f }, { L::ChinaLead, .02f } };
                     case Part::Fill:      return { { L::Hat8, .50f }, { L::Ride8, .30f }, { L::HatQuarter, .20f } };
-                    case Part::Breakdown: return { { L::RideBell, .30f }, { L::CrashLead, .25f }, { L::Ride8, .25f }, { L::OpenHatLead, .20f } };
+                    case Part::Breakdown: return { { L::RideBell, .28f }, { L::CrashLead, .27f }, { L::Ride8, .25f }, { L::OpenHatLead, .20f } };
                 }
                 break;
             case Style::DrumAndBass:
@@ -404,28 +452,41 @@ namespace
                     case Part::Breakdown: return { { L::Hat8, .28f }, { L::RideQuarter, .28f }, { L::HatQuarter, .24f }, { L::ChinaLead, .20f } };
                 }
                 break;
+            case Style::PostMetal:
+                switch (p)
+                {
+                    case Part::Intro:     return { { L::CrashSwell, .30f }, { L::RideBell, .25f }, { L::RideQuarter, .20f }, { L::HatQuarter, .15f }, { L::Hat8Open, .10f } };
+                    case Part::Verse:     return { { L::RideQuarter, .25f }, { L::RideBell, .25f }, { L::HatQuarter, .15f }, { L::Hat8Open, .15f }, { L::Ride8, .10f }, { L::CrashLead, .10f } };
+                    case Part::Bridge:    return { { L::RideBell, .35f }, { L::RideQuarter, .25f }, { L::CrashSwell, .20f }, { L::HatQuarter, .10f }, { L::Hat8Open, .10f } };
+                    case Part::Chorus:    return { { L::CrashLead, .40f }, { L::ChinaLead, .12f }, { L::OpenHatLead, .13f }, { L::RideBell, .12f }, { L::Ride8, .13f }, { L::CrashSwell, .10f } };
+                    case Part::Fill:      return { { L::RideBell, .40f }, { L::Hat8, .30f }, { L::CrashLead, .30f } };
+                    case Part::Breakdown: return { { L::CrashLead, .35f }, { L::ChinaLead, .30f }, { L::RideBell, .15f }, { L::HatQuarter, .10f }, { L::OpenHatLead, .10f } };
+                }
+                break;
         }
         return { { Lead::Hat8, 1.0f } };
     }
 
-    // Креши чередуются: левый, правый, дальний левый; один и тот же дважды подряд не берём.
+    // Креши чередуются. В песнях правый крэш (57) встречается подряд ~79% случаев, левый (49)
+    // почти всегда сменяется правым; здесь смены сделаны чаще, чем в песнях, чтобы разнообразить звук.
     struct CrashSeq
     {
-        int prev = -1;
+        int prev = -1;   // 0 левый, 1 правый, 2 дальний левый
 
         Art next (juce::Random& rng)
         {
             static const Art pool[3] = { Art::CrashLeft, Art::CrashRight, Art::CrashFarLeft };
-            for (;;)
-            {
-                const float r = rng.nextFloat();
-                const int i = r < 0.42f ? 0 : (r < 0.84f ? 1 : 2);
-                if (i != prev)
-                {
-                    prev = i;
-                    return pool[i];
-                }
-            }
+            int i;
+            const float r = rng.nextFloat();
+
+            if (prev < 0)         i = r < 0.55f ? 1 : (r < 0.88f ? 0 : 2);
+            else if (r < 0.08f)   i = prev == 2 ? 1 : 2;
+            else if (prev == 1)   i = rng.nextFloat() < 0.42f ? 0 : 1;
+            else if (prev == 0)   i = rng.nextFloat() < 0.78f ? 1 : 0;
+            else                  i = rng.nextBool() ? 0 : 1;
+
+            prev = i;
+            return pool[i];
         }
     };
 
@@ -435,18 +496,21 @@ namespace
         int dens = 0;   // для крэша/чайны: 0 доли, 1 восьмые, 2 каждая вторая доля, 3 только "и"
     };
 
-    LeadCfg makeLeadCfg (Lead l, juce::Random& rng)
+    // В полутайме крэш чаще бьют в четверти, в бэкбите чаще в восьмые.
+    LeadCfg makeLeadCfg (Lead l, bool halfFeel, juce::Random& rng)
     {
         LeadCfg c;
         c.lead = l;
         if (l == Lead::CrashLead)
-            c.dens = pickWeighted<int> ({ { 0, .50f }, { 1, .20f }, { 2, .15f }, { 3, .15f } }, rng);
+            c.dens = halfFeel ? pickWeighted<int> ({ { 0, .58f }, { 1, .22f }, { 2, .12f }, { 3, .08f } }, rng)
+                              : pickWeighted<int> ({ { 0, .30f }, { 1, .50f }, { 2, .10f }, { 3, .10f } }, rng);
         if (l == Lead::ChinaLead)
-            c.dens = pickWeighted<int> ({ { 0, .45f }, { 1, .20f }, { 2, .15f }, { 3, .20f } }, rng);
+            c.dens = halfFeel ? pickWeighted<int> ({ { 0, .60f }, { 1, .12f }, { 2, .13f }, { 3, .15f } }, rng)
+                              : pickWeighted<int> ({ { 0, .50f }, { 1, .20f }, { 2, .12f }, { 3, .18f } }, rng);
         return c;
     }
 
-    void layLead (HitVec& out, const LeadCfg& c, const Grid& g, int off, int bar, juce::Random& rng, CrashSeq& cs)
+    void layLead (HitVec& out, const LeadCfg& c, const Grid& g, int off, int bar, int bars, juce::Random& rng, CrashSeq& cs)
     {
         const int spb = g.spb;
         auto add = [&] (int s, Art a, int v) { out.push_back ({ off + s, a, jit (rng, v) }); };
@@ -460,9 +524,11 @@ namespace
                     const bool acc = g.isStart (s);
                     Art a = Art::HatClosedTip;
                     int v = acc ? 100 : 82;
-                    if (c.lead == Lead::Hat8Open && s % 4 == 2 && rng.nextFloat() < 0.22f)
+                    // открытый хэт в песнях чаще на долях, но и на "и" тоже
+                    const float openP = acc ? (s == 0 ? 0.0f : 0.08f) : 0.14f;
+                    if (c.lead == Lead::Hat8Open && rng.nextFloat() < openP)
                     {
-                        a = rng.nextBool() ? Art::HatOpen1 : Art::HatOpen2;
+                        a = rng.nextFloat() < 0.7f ? Art::HatOpen1 : Art::HatOpen2;
                         v = 96;
                     }
                     else if (acc && rng.nextFloat() < 0.2f)
@@ -470,11 +536,6 @@ namespace
                         a = Art::HatClosedEdge;
                     }
                     add (s, a, v);
-                }
-                if (c.lead == Lead::Hat8Open && bar % 2 == 1 && spb >= 4 && rng.nextFloat() < 0.5f)
-                {
-                    eraseAt (out, off + spb - 2);
-                    add (spb - 2, Art::HatOpen1, 98);
                 }
                 break;
 
@@ -530,11 +591,15 @@ namespace
                     steps = g.starts;
 
                 Art cur = Art::CrashLeft;
+                bool have = false;
                 for (int s : steps)
                 {
                     const bool start = g.isStart (s);
-                    if (c.lead == Lead::CrashLead && (start || cur == Art::CrashLeft))
+                    if (c.lead == Lead::CrashLead && (start || ! have))
+                    {
                         cur = cs.next (rng);
+                        have = true;
+                    }
                     add (s, c.lead == Lead::ChinaLead ? Art::China : cur, start ? 108 : 92);
                 }
                 break;
@@ -549,11 +614,23 @@ namespace
                         add (s, Art::HatClosedTip, 78);
                 }
                 break;
+
+            case Lead::CrashSwell:
+            {
+                // крэши на долях с нарастающей громкостью по всей фразе
+                const int n = g.groups();
+                for (int i = 0; i < n; ++i)
+                {
+                    const float t = (float) (bar * n + i + 1) / (float) (bars * n);
+                    add (g.starts[(size_t) i], cs.next (rng), 38 + (int) (82.0f * t));
+                }
+                break;
+            }
         }
     }
 
     // Тарелки на всю фразу: ведущий голос + акценты (крэши, чайна, сплэш).
-    HitVec buildCymbals (Style style, Part part, const Grid& g, int bars, const Prof& f,
+    HitVec buildCymbals (Style style, Part part, const Grid& g, int bars, const Prof& f, bool halfFeel,
                          const std::vector<std::vector<int>>& kicks, juce::Random& rng)
     {
         const int spb = g.spb;
@@ -561,12 +638,18 @@ namespace
         CrashSeq cs;
 
         const auto table = leadTable (style, part);
-        const LeadCfg a = makeLeadCfg (pickWeighted (table, rng), rng);
-        LeadCfg b = makeLeadCfg (pickWeighted (table, rng), rng);
+        const LeadCfg a = makeLeadCfg (pickWeighted (table, rng), halfFeel, rng);
+        LeadCfg b = makeLeadCfg (pickWeighted (table, rng), halfFeel, rng);
         const bool useB = b.lead != a.lead && rng.nextFloat() < 0.4f;
 
         for (int bar = 0; bar < bars; ++bar)
-            layLead (out, (useB && bar >= 2) ? b : a, g, bar * spb, bar, rng, cs);
+        {
+            const auto& cfg = (useB && bar >= 2) ? b : a;
+            // в песнях в ~15% тактов тарелок почти нет (паузы, акценты): иногда пропускаем ведущий голос
+            if (bar > 0 && cfg.lead != Lead::CrashSwell && rng.nextFloat() < 0.10f)
+                continue;
+            layLead (out, cfg, g, bar * spb, bar, bars, rng, cs);
+        }
 
         const bool intense = part == Part::Chorus || part == Part::Breakdown;
 
@@ -576,15 +659,26 @@ namespace
             out.push_back ({ step, art, jit (rng, vel, 3) });
         };
 
+        auto downbeat = [&] (bool allowChina)
+        {
+            if (allowChina && intense && rng.nextFloat() < (halfFeel ? 0.22f : 0.12f))
+                return Art::China;
+            return cs.next (rng);
+        };
+
         if (rng.nextFloat() < f.crash1)
-            accent (0, (intense && rng.nextFloat() < 0.25f) ? Art::China : cs.next (rng), 120);
+            accent (0, downbeat (true), 120);
 
-        if (bars > 2 && rng.nextFloat() < f.crash3)
-            accent (2 * spb, (intense && rng.nextFloat() < 0.2f) ? Art::China : cs.next (rng), 118);
+        for (int bar = 1; bar < bars; ++bar)
+        {
+            const float p = bar == 2 ? juce::jmax (f.crash3, f.crashEvery) : f.crashEvery;
+            if (rng.nextFloat() < p)
+                accent (bar * spb, downbeat (true), 116);
+        }
 
-        // сплэш или чайна на "и" последней доли
+        // сплэш (редко) или чайна на "и" последней доли
         if (rng.nextFloat() < f.endAccent && spb >= 4)
-            accent ((bars - 1) * spb + spb - 2, rng.nextBool() ? Art::Splash : Art::China, 108);
+            accent ((bars - 1) * spb + spb - 2, rng.nextFloat() < 0.2f ? Art::Splash : Art::China, 108);
 
         // акценты в унисон с кик-ударами
         if (f.accentOnKick > 0.0f)
@@ -634,6 +728,65 @@ namespace
         if (! steps.empty() && rng.nextFloat() < 0.5f) L[(size_t) Lane::Kick].push_back ({ steps.back(),  Art::Kick, jit (rng, 112) });
     }
 
+    // ---------------------------------------------------------------- post-metal: томовые клише
+    // 1 "сердцебиение": напольный том на каждой доле; 2 "племенной": восьмые по двум томам;
+    // 3 "тресильо": кусочки по 2-4 шага по кругу томов.
+    void addTribalToms (HitVec& toms, const Grid& g, int bars, int kind, juce::Random& rng)
+    {
+        const int spb = g.spb;
+        static const Art circle[] = { Art::TomFloor1, Art::TomRack2, Art::TomFloor1, Art::TomFloor2, Art::TomRack1 };
+
+        for (int bar = 0; bar < bars; ++bar)
+        {
+            const int off = bar * spb;
+
+            if (kind == 1)
+            {
+                for (int s : g.starts)
+                    toms.push_back ({ off + s, (s == g.starts.back() && bar % 2 == 1) ? Art::TomFloor2 : Art::TomFloor1,
+                                      jit (rng, s == 0 ? 104 : 88) });
+            }
+            else if (kind == 2)
+            {
+                for (int s = 0; s < spb; s += 2)
+                {
+                    if (! g.isStart (s) && rng.nextFloat() < 0.12f)
+                        continue;
+                    const bool low = (s / 2) % 2 == 0;
+                    toms.push_back ({ off + s, low ? Art::TomFloor1 : Art::TomRack2,
+                                      jit (rng, g.isStart (s) ? 106 : 84) });
+                }
+            }
+            else
+            {
+                const auto pos = randomSplit (spb, rng);
+                int k = 0;
+                for (int s : pos)
+                    toms.push_back ({ off + s, circle[(size_t) (k++ % 5)], jit (rng, s == 0 ? 108 : 92) });
+            }
+
+            // в последнем такте томы нарастают
+            if (bar == bars - 1 && spb >= 8 && rng.nextFloat() < 0.6f)
+                for (int s = spb - 4; s < spb; ++s)
+                    toms.push_back ({ off + s, circle[(size_t) (s % 5)], 70 + (s - (spb - 4)) * 14 });
+        }
+    }
+
+    // Полутайм ли снейр: основные удары на третьей доле, а не на второй и четвёртой.
+    bool isHalfFeel (const HitVec& snare)
+    {
+        int half = 0, back = 0;
+        for (const auto& h : snare)
+        {
+            if (h.velocity < 75)
+                continue;
+            const int s = h.step % 16;
+            if (s == 8) ++half;
+            else if (s == 4 || s == 12) ++back;
+        }
+        return half > back;
+    }
+
     // ---------------------------------------------------------------- процедурный генератор
     Lanes proceduralLanes (Style style, Part part, const Grid& g, int bars, const Prof& f, juce::Random& rng)
     {
@@ -645,7 +798,10 @@ namespace
         for (int bar = 2; bar < bars; ++bar)
             mutateKicks (kicks[(size_t) bar], g, rng, bar == bars - 1 ? 2 : 1);
 
-        const SnVar sv = pickWeighted (snareTable (style, part), rng);
+        const bool tribal = f.tribalChance > 0.0f && rng.nextFloat() < f.tribalChance;
+        SnVar sv = pickWeighted (snareTable (style, part), rng);
+        if (tribal && sv != SnVar::None && rng.nextFloat() < 0.6f)
+            sv = SnVar::None;
 
         for (int bar = 0; bar < bars; ++bar)
         {
@@ -658,7 +814,11 @@ namespace
                 L[(size_t) Lane::Kick].push_back (h);
         }
 
-        L[(size_t) Lane::Cymbals] = buildCymbals (style, part, g, bars, f, kicks, rng);
+        const bool half = sv == SnVar::Half || sv == SnVar::HalfGhost || sv == SnVar::None;
+        L[(size_t) Lane::Cymbals] = buildCymbals (style, part, g, bars, f, half, kicks, rng);
+
+        if (tribal)
+            addTribalToms (L[(size_t) Lane::Toms], g, bars, 1 + rng.nextInt (3), rng);
 
         if (f.tomGroove)
             for (int bar = 0; bar < bars; ++bar)
@@ -706,9 +866,22 @@ namespace
         }
     }
 
-    const CorpusPhrase* pickPhrase (Part part, Style style, int bars, juce::Random& rng)
+    int styleBit (Style s)
     {
-        const int bit = style == Style::Djent ? 1 : 2;
+        switch (s)
+        {
+            case Style::Djent:       return 1;
+            case Style::Metalcore:   return 2;
+            case Style::IndieRock:   return 4;
+            case Style::DrumAndBass: return 8;
+            case Style::PostMetal:   return 16;
+        }
+        return 1;
+    }
+
+    const CorpusPhrase* pickExact (Part part, Style style, int bars, juce::Random& rng)
+    {
+        const int bit = styleBit (style);
         std::vector<const CorpusPhrase*> pool;
         for (int i = 0; i < kCorpusSize; ++i)
         {
@@ -719,9 +892,26 @@ namespace
         return pool.empty() ? nullptr : pool[(size_t) rng.nextInt ((int) pool.size())];
     }
 
-    bool corpusUsable (Style style, int num, int den)
+    // Если для стиля нет фраз нужной части, берём ближайшую по характеру.
+    const CorpusPhrase* pickPhrase (Part part, Style style, int bars, juce::Random& rng)
     {
-        return num == 4 && den == 4 && (style == Style::Djent || style == Style::Metalcore) && kCorpusSize > 0;
+        static const Part fallback[kNumParts][3] = {
+            { Part::Intro,     Part::Verse,  Part::Verse },
+            { Part::Verse,     Part::Chorus, Part::Verse },
+            { Part::Bridge,    Part::Intro,  Part::Verse },
+            { Part::Chorus,    Part::Verse,  Part::Chorus },
+            { Part::Fill,      Part::Fill,   Part::Fill },
+            { Part::Breakdown, Part::Chorus, Part::Verse } };
+
+        for (const auto p : fallback[(int) part])
+            if (const auto* ph = pickExact (p, style, bars, rng))
+                return ph;
+        return nullptr;
+    }
+
+    bool corpusUsable (int num, int den)
+    {
+        return num == 4 && den == 4 && kCorpusSize > 0;
     }
 
     bool isGhost (const Hit& h) { return h.art == Art::Snare && h.velocity < 75; }
@@ -775,7 +965,7 @@ namespace
             std::vector<std::vector<int>> kicks (4);
             for (const auto& h : L[(size_t) Lane::Kick])
                 kicks[(size_t) (h.step / 16)].push_back (h.step % 16);
-            L[(size_t) Lane::Cymbals] = buildCymbals (style, part, g, 4, f, kicks, rng);
+            L[(size_t) Lane::Cymbals] = buildCymbals (style, part, g, 4, f, isHalfFeel (L[(size_t) Lane::Snare]), kicks, rng);
         }
 
         // снейр: гост-ноты оставить / убрать / добавить, иногда рим-клик
@@ -873,7 +1063,7 @@ Pattern generate (Style style, Part part, int num, int den, juce::Random& rng)
     Lanes L;
     bool done = false;
 
-    if (corpusUsable (style, num, den) && rng.nextFloat() < 0.88f)
+    if (corpusUsable (num, den) && rng.nextFloat() < 0.88f)
         L = corpusLanes (style, part, rng, done);
 
     if (! done)
@@ -924,7 +1114,7 @@ Pattern regenerateLane (const Pattern& cur, Lane lane, juce::Random& rng)
     else if (lane == Lane::Cymbals)
     {
         bool fromCorpus = false;
-        if (corpusUsable (cur.style, cur.numerator, cur.denominator) && rng.nextFloat() < 0.45f)
+        if (corpusUsable (cur.numerator, cur.denominator) && rng.nextFloat() < 0.45f)
         {
             const Part src = cur.part == Part::Fill ? Part::Verse : cur.part;
             if (const auto* ph = pickPhrase (src, cur.style, 4, rng))
@@ -941,13 +1131,13 @@ Pattern regenerateLane (const Pattern& cur, Lane lane, juce::Random& rng)
             std::vector<std::vector<int>> kicks ((size_t) bars);
             for (const auto& h : L[(size_t) Lane::Kick])
                 kicks[(size_t) juce::jlimit (0, bars - 1, h.step / spb)].push_back (h.step % spb);
-            fresh = buildCymbals (cur.style, cur.part, g, bars, f, kicks, rng);
+            fresh = buildCymbals (cur.style, cur.part, g, bars, f, isHalfFeel (L[(size_t) Lane::Snare]), kicks, rng);
         }
     }
     else if (lane == Lane::Kick)
     {
         bool fromCorpus = false;
-        if (corpusUsable (cur.style, cur.numerator, cur.denominator) && rng.nextFloat() < 0.5f)
+        if (corpusUsable (cur.numerator, cur.denominator) && rng.nextFloat() < 0.5f)
         {
             const Part src = cur.part == Part::Fill ? Part::Verse : cur.part;
             if (const auto* ph = pickPhrase (src, cur.style, 4, rng))

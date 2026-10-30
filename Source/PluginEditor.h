@@ -27,7 +27,7 @@ public:
             return;
 
         static const drums::Lane lanes[4] = { drums::Lane::Cymbals, drums::Lane::Toms, drums::Lane::Snare, drums::Lane::Kick };
-        const juce::String names[4] = { ui::ru ("ТАРЕЛКИ"), ui::ru ("ТОМЫ"), ui::ru ("СНЕЙР"), ui::ru ("КИК") };
+        const juce::String names[4] = { ui::tr ("ТАРЕЛКИ", "CYMBALS"), ui::tr ("ТОМЫ", "TOMS"), ui::tr ("СНЕЙР", "SNARE"), ui::tr ("КИК", "KICK") };
 
         for (int i = 0; i < 4; ++i)
         {
@@ -48,8 +48,8 @@ public:
 
         g.setColour (ui::col::dim);
         g.setFont (ui::boldFont (9.5f, 0.1f));
-        g.drawText (ui::ru ("СЛУЧАЙНЫЙ"), juce::Rectangle<float> (96.0f, 92.0f, 90.0f, 12.0f), juce::Justification::centredLeft, false);
-        g.drawText (ui::ru ("ПАТТЕРН"), juce::Rectangle<float> (96.0f, 105.0f, 90.0f, 12.0f), juce::Justification::centredLeft, false);
+        g.drawText (ui::tr ("СЛУЧАЙНЫЙ", "RANDOM"), juce::Rectangle<float> (96.0f, 92.0f, 90.0f, 12.0f), juce::Justification::centredLeft, false);
+        g.drawText (ui::tr ("ПАТТЕРН", "PATTERN"), juce::Rectangle<float> (96.0f, 105.0f, 90.0f, 12.0f), juce::Justification::centredLeft, false);
     }
 
 private:
@@ -83,6 +83,9 @@ private:
     void showSettingsMenu();
     void saveToGrooves();
     void say (const juce::String& text);
+    void applyLanguage();
+    void setScale (int index);      // 0 средний, 1 большой
+    void updateScaleBox();
 
     DrUmsProcessor& proc;
     ui::ReferenceLookAndFeel laf;
@@ -92,9 +95,9 @@ private:
     ui::KitView kit;
     ui::PreviewView preview;
     ui::GroovesView grooves;
-    ui::DropButton libraryBtn { ui::ru ("БИБЛИОТЕКА") }, styleBtn { ui::ru ("СТИЛЬ") };
-    ui::SegmentedBox modeBox, partBox;
-    ui::SigBox sigBox { ui::ru ("РАЗМЕР") };
+    ui::DropButton libraryBtn { juce::String() }, styleBtn { juce::String() };
+    ui::SegmentedBox modeBox, partBox, scaleBox;
+    ui::SigBox sigBox { juce::String() };
     ui::IconButton diceAll { ui::Icon::Dice }, gearBtn { ui::Icon::Gear },
                    playBtn { ui::Icon::Play }, heartBtn { ui::Icon::Heart };
     std::unique_ptr<ui::IconButton> laneDice[4], laneLock[4];
@@ -105,6 +108,9 @@ private:
     bool wasPlayingUi = false;
     int shownGrooveId = -1;
     int statusTicks = 0;
+    int sizeSaveTicks = 0;
+    bool sizeReady = false;
+    loc::Lang shownLang = loc::Lang::Ru;
     std::unique_ptr<juce::FileChooser> chooser;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrUmsEditor)

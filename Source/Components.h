@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <cmath>
 #include <functional>
+#include <map>
 #include <numeric>
 #include <BinaryData.h>
 #include "PluginProcessor.h"
@@ -12,6 +13,31 @@
 namespace ui
 {
 inline juce::String ru (const char* utf8) { return juce::String::fromUTF8 (utf8); }
+inline juce::String tr (const char* ru, const char* en) { return loc::tr (ru, en); }
+
+// Названия частей песни для интерфейса (в именах файлов остаются английские).
+inline juce::String partLabel (drums::Part p)
+{
+    switch (p)
+    {
+        case drums::Part::Intro:     return tr ("интро", "intro");
+        case drums::Part::Verse:     return tr ("куплет", "verse");
+        case drums::Part::Bridge:    return tr ("бридж", "bridge");
+        case drums::Part::Chorus:    return tr ("припев", "chorus");
+        case drums::Part::Fill:      return tr ("филл", "fill");
+        case drums::Part::Breakdown: return tr ("брейкдаун", "breakdown");
+    }
+    return {};
+}
+
+// Уменьшение картинки вдвое по шагам: билинейная выборка точно посередине между пикселями
+// даёт усреднение 2x2, поэтому тонкие линии не рассыпаются при сильном уменьшении.
+inline juce::Image downscaled (juce::Image src, int w, int h)
+{
+    while (src.getWidth() >= w * 2 && src.getHeight() >= h * 2)
+        src = src.rescaled (src.getWidth() / 2, src.getHeight() / 2, juce::Graphics::mediumResamplingQuality);
+    return src.rescaled (w, h, juce::Graphics::highResamplingQuality);
+}
 
 inline juce::Font boldFont (float h, float kerning = 0.0f)
 {
@@ -133,6 +159,14 @@ inline void drawGear (juce::Graphics& g, juce::Rectangle<float> r, juce::Colour 
     g.fillPath (p);
 }
 
+// Логотип-крыса (Resources/rat.png) хранится как маска; цвет задаётся кистью.
+inline const juce::Image& ratImage()
+{
+    static const juce::Image img = juce::ImageCache::getFromMemory (BinaryData::rat_png, BinaryData::rat_pngSize);
+    return img;
+}
+
+// Кнопка блокировки: не нажата — чёрная крыса на белом, нажата — белая крыса на чёрном.
 inline void drawLock (juce::Graphics& g, juce::Rectangle<float> r, bool locked, juce::Colour tint)
 {
     const auto bg = locked ? juce::Colour (0xFF0B0D12) : juce::Colours::white;
@@ -144,27 +178,25 @@ inline void drawLock (juce::Graphics& g, juce::Rectangle<float> r, bool locked, 
     g.setColour (edge);
     g.drawRoundedRectangle (r.reduced (1.5f), 10.0f, 3.0f);
 
-    const auto c = r.getCentre();
-    const float s = juce::jmin (r.getWidth(), r.getHeight());
-    const auto body = juce::Rectangle<float> (s * 0.46f, s * 0.34f).withCentre (c.translated (0.0f, s * 0.12f));
+    const auto& rat = ratImage();
+    if (rat.isValid())
+    {
+        const auto area = r.reduced (r.getWidth() * 0.10f);
+        const float px = g.getInternalContext().getPhysicalPixelScaleFactor();
+        const int side = juce::jmax (8, juce::roundToInt (juce::jmin (area.getWidth(), area.getHeight()) * px));
 
-    const float shW = body.getWidth() * 0.62f;
-    const float sx = c.x - shW * 0.5f;
-    const float topY = body.getY() - s * 0.24f;
-    const float rightBottom = locked ? body.getY() : body.getY() - s * 0.10f;
+        static std::map<int, juce::Image> cache;      // размер в пикселях -> готовая маска
+        auto it = cache.find (side);
+        if (it == cache.end())
+        {
+            if (cache.size() > 8)
+                cache.clear();
+            it = cache.emplace (side, downscaled (rat, side, side)).first;
+        }
 
-    juce::Path sh;
-    sh.startNewSubPath (sx, body.getY());
-    sh.lineTo (sx, topY + shW * 0.5f);
-    sh.addArc (sx, topY, shW, shW, -juce::MathConstants<float>::halfPi, juce::MathConstants<float>::halfPi, false);
-    sh.lineTo (sx + shW, rightBottom);
-
-    g.setColour (fg);
-    g.strokePath (sh, juce::PathStrokeType (s * 0.075f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    g.fillRoundedRectangle (body, 3.0f);
-
-    g.setColour (bg);
-    g.fillEllipse (juce::Rectangle<float> (s * 0.09f, s * 0.09f).withCentre (body.getCentre()));
+        g.setColour (fg);
+        g.drawImage (it->second, area, juce::RectanglePlacement::centred, true);
+    }
 }
 
 inline void drawHeart (juce::Graphics& g, juce::Rectangle<float> r, bool over)
@@ -280,6 +312,7 @@ public:
     }
 
     void setValue (const juce::String& v) { if (value != v) { value = v; repaint(); } }
+    void setCaption (const juce::String& c) { if (caption != c) { caption = c; repaint(); } }
 
     void paintButton (juce::Graphics& g, bool over, bool down) override
     {
@@ -445,6 +478,8 @@ public:
         ed.onFocusLost = [this] { commit(); };
     }
 
+    void setCaption (const juce::String& c) { if (caption != c) { caption = c; repaint(); } }
+
     void setValue (int n, int d)
     {
         curNum = n;
@@ -552,7 +587,7 @@ public:
             const int tw = juce::jmax (1, juce::roundToInt (dw * px));
             const int th = juce::jmax (1, juce::roundToInt (dh * px));
             if (! scaled.isValid() || scaled.getWidth() != tw || scaled.getHeight() != th)
-                scaled = image.rescaled (tw, th, juce::Graphics::highResamplingQuality);
+                scaled = downscaled (image, tw, th);
 
             g.saveState();
             g.reduceClipRegion (panel, juce::AffineTransform());
@@ -827,11 +862,11 @@ public:
 
         const int colFlags = juce::TableHeaderComponent::visible | juce::TableHeaderComponent::resizable
                            | juce::TableHeaderComponent::sortable;
-        h.addColumn (ru ("Стиль"), 1, 120, 60, 300, colFlags);
-        h.addColumn (ru ("Часть песни"), 2, 120, 60, 300, colFlags);
-        h.addColumn (ru ("Название паттерна"), 3, 250, 100, 500, colFlags);
-        h.addColumn (ru ("Размер"), 4, 80, 50, 200, colFlags);
-        h.addColumn (ru ("Дата сохранения"), 5, 170, 80, 300, colFlags);
+        h.addColumn (tr ("Стиль", "Style"), 1, 120, 60, 300, colFlags);
+        h.addColumn (tr ("Часть песни", "Song part"), 2, 120, 60, 300, colFlags);
+        h.addColumn (tr ("Название паттерна", "Pattern name"), 3, 250, 100, 500, colFlags);
+        h.addColumn (tr ("Размер", "Time sig."), 4, 80, 50, 200, colFlags);
+        h.addColumn (tr ("Дата сохранения", "Saved"), 5, 170, 80, 300, colFlags);
         h.setSortColumnId (5, false);   // по умолчанию — по дате, новые сверху
     }
 
@@ -840,6 +875,18 @@ public:
         rebuildOrder();
         table.updateContent();
         table.repaint();
+    }
+
+    void refreshLanguage()
+    {
+        auto& h = table.getHeader();
+        h.setColumnName (1, tr ("Стиль", "Style"));
+        h.setColumnName (2, tr ("Часть песни", "Song part"));
+        h.setColumnName (3, tr ("Название паттерна", "Pattern name"));
+        h.setColumnName (4, tr ("Размер", "Time sig."));
+        h.setColumnName (5, tr ("Дата сохранения", "Saved"));
+        table.repaint();
+        repaint();
     }
 
     void paint (juce::Graphics& g) override
@@ -854,7 +901,8 @@ public:
         {
             g.setColour (col::dim);
             g.setFont (plainFont (14.0f));
-            g.drawFittedText (ru ("Здесь появятся паттерны, сохранённые сердечком на вкладке EDIT"),
+            g.drawFittedText (tr ("Здесь появятся паттерны, сохранённые сердечком на вкладке EDIT",
+                                  "Patterns saved with the heart button on the EDIT tab will appear here"),
                               getLocalBounds().withTrimmedTop (80).reduced (40, 0),
                               juce::Justification::centredTop, 2);
         }
@@ -923,7 +971,7 @@ private:
         switch (colId)
         {
             case 1: text = juce::String (drums::styleName (e->pattern.style)); break;
-            case 2: text = juce::String (drums::partName (e->pattern.part)); break;
+            case 2: text = partLabel (e->pattern.part); break;
             case 3: text = e->name; break;
             case 4: text = e->pattern.timeSigText(); break;
             case 5: text = juce::Time (e->savedMs).formatted ("%d.%m.%Y  %H:%M"); break;

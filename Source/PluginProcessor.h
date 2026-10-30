@@ -6,6 +6,7 @@
 #include "DrumMaps.h"
 #include "Generator.h"
 #include "GrooveLibrary.h"
+#include "Localization.h"
 #include "MidiTools.h"
 
 class DrUmsProcessor : public juce::AudioProcessor,
@@ -68,6 +69,12 @@ public:
 
     bool saveGroove (juce::String& nameOut);
     GrooveLibrary& getLibrary() { return library; }
+
+    // общие настройки (хранятся в файле настроек, а не в проекте)
+    loc::Lang getLanguage() const { return loc::get(); }
+    void setLanguage (loc::Lang l);
+    int getSavedEditorWidth() const { return savedEditorWidth; }
+    void saveEditorWidth (int width);
     juce::File getMidiFolder() const { return library.getFolder(); }
     void setMidiFolder (const juce::File& f);
 
@@ -98,6 +105,7 @@ private:
     drums::Pattern pattern;
     std::optional<drums::Pattern> audition;
     GrooveLibrary library;
+    int savedEditorWidth = 0;
 
     // аудио-поток
     struct PendingOff { int note; int remaining; };

@@ -10,9 +10,9 @@ namespace drums
 enum class Lane  { Kick = 0, Snare, Toms, Cymbals };
 constexpr int kNumLanes = 4;
 
-enum class Style { Djent = 0, Metalcore, IndieRock, DrumAndBass };
+enum class Style { Djent = 0, Metalcore, IndieRock, DrumAndBass, PostMetal };
 enum class Part  { Intro = 0, Verse, Bridge, Chorus, Fill, Breakdown };
-constexpr int kNumStyles = 4;
+constexpr int kNumStyles = 5;
 constexpr int kNumParts  = 6;
 
 // Абстрактный "голос" барабана. В MIDI-ноту он превращается через DrumMap,
@@ -59,12 +59,12 @@ inline Lane laneOf (Art a)
 
 inline const char* styleName (Style s)
 {
-    static const char* n[] = { "Djent", "Metalcore", "Indie Rock", "Drum & Bass" };
+    static const char* n[] = { "Djent", "Metalcore", "Indie Rock", "Drum & Bass", "Post-metal" };
     return n[(int) s];
 }
 inline const char* styleSlug (Style s)
 {
-    static const char* n[] = { "djent", "metalcore", "indierock", "dnb" };
+    static const char* n[] = { "djent", "metalcore", "indierock", "dnb", "postmetal" };
     return n[(int) s];
 }
 inline const char* partName (Part p)

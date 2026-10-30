@@ -5,7 +5,9 @@ using ui::ru;
 
 namespace
 {
-    constexpr int kW = 766, kH = 623;      // размер референса
+    constexpr int kW = 766, kH = 623;      // средний размер (100%) и пропорции окна
+    constexpr int kLargeW = 1072;          // большой размер (140%)
+    constexpr int kMinW = 383, kMaxW = kW * 2;
 
     // Порядок рядов слева сверху вниз: тарелки, тома, снейр, кик.
     const Lane rowLane[4] = { Lane::Cymbals, Lane::Toms, Lane::Snare, Lane::Kick };
@@ -18,7 +20,7 @@ DrUmsEditor::DrUmsEditor (DrUmsProcessor& p)
     addAndMakeVisible (content);
 
     for (auto* c : std::initializer_list<juce::Component*> { &backdrop, &kit, &grooves, &libraryBtn, &styleBtn,
-                                                              &modeBox, &partBox, &sigBox, &diceAll, &gearBtn,
+                                                              &modeBox, &partBox, &scaleBox, &sigBox, &diceAll, &gearBtn,
                                                               &playBtn, &preview, &heartBtn, &status })
         content.addAndMakeVisible (c);
 
@@ -40,12 +42,13 @@ DrUmsEditor::DrUmsEditor (DrUmsProcessor& p)
     }
 
     backdrop.setBounds (0, 0, kW, kH);
-    libraryBtn.setBounds (14, 10, 206, 46);
-    styleBtn.setBounds (228, 10, 150, 46);
-    sigBox.setBounds (386, 10, 76, 46);
-    modeBox.setBounds (476, 14, 150, 38);
-    playBtn.setBounds (638, 8, 50, 50);
-    gearBtn.setBounds (704, 10, 46, 46);
+    libraryBtn.setBounds (14, 10, 182, 46);
+    styleBtn.setBounds (204, 10, 140, 46);
+    sigBox.setBounds (352, 10, 68, 46);
+    modeBox.setBounds (430, 14, 142, 38);
+    scaleBox.setBounds (582, 16, 58, 34);
+    playBtn.setBounds (648, 8, 50, 50);
+    gearBtn.setBounds (706, 10, 44, 44);
     diceAll.setBounds (22, 70, 66, 66);
     partBox.setBounds (176, 82, 574, 44);
     kit.setBounds (170, 158, 582, 360);
@@ -61,10 +64,8 @@ DrUmsEditor::DrUmsEditor (DrUmsProcessor& p)
 
     modeBox.setItems ({ "EDIT", "GROOVES" });
     modeBox.fontSize = 13.0f;
-    juce::StringArray parts;
-    for (int i = 0; i < kNumParts; ++i)
-        parts.add (juce::String (partName ((Part) i)).toLowerCase());
-    partBox.setItems (parts);
+    scaleBox.setItems ({ "M", "L" });
+    scaleBox.fontSize = 13.0f;
     partBox.fontSize = 14.0f;
 
     libraryBtn.onClick = [this] { showLibraryMenu(); };
@@ -75,6 +76,7 @@ DrUmsEditor::DrUmsEditor (DrUmsProcessor& p)
     heartBtn.onClick   = [this] { saveToGrooves(); };
 
     modeBox.onChange = [this] (int i) { setGrooveMode (i == 1); };
+    scaleBox.onChange = [this] (int i) { setScale (i); };
     partBox.onChange = [this] (int i) { proc.setPart ((Part) i); };
     sigBox.onApply   = [this] (int n, int d) { proc.setTimeSig (n, d); };
 
@@ -102,9 +104,18 @@ DrUmsEditor::DrUmsEditor (DrUmsProcessor& p)
     grooves.setVisible (false);
 
     setResizable (true, true);
-    setResizeLimits (383, 312, kW * 2, kH * 2);
+    setResizeLimits (kMinW, (int) std::lround (kMinW * (double) kH / kW), kMaxW, (int) std::lround (kMaxW * (double) kH / kW));
     getConstrainer()->setFixedAspectRatio ((double) kW / (double) kH);
-    setSize (kW, kH);
+
+    // размер окна запоминается между открытиями плагина
+    const int savedW = proc.getSavedEditorWidth();
+    const int startW = savedW >= kMinW ? juce::jmin (savedW, kMaxW) : kW;
+    setSize (startW, (int) std::lround (startW * (double) kH / kW));
+    sizeReady = true;
+
+    shownLang = loc::get();
+    applyLanguage();
+    updateScaleBox();
 
     proc.addChangeListener (this);
     startTimerHz (30);
@@ -129,10 +140,50 @@ void DrUmsEditor::resized()
     const float s = (float) getWidth() / (float) kW;
     content.setTransform (juce::AffineTransform::scale (s));
     content.setBounds (0, 0, kW, kH);
+
+    if (sizeReady)
+    {
+        sizeSaveTicks = 15;   // сохраняем через полсекунды после последнего изменения размера
+        updateScaleBox();
+    }
+}
+
+void DrUmsEditor::updateScaleBox()
+{
+    const int w = getWidth();
+    scaleBox.setSelected (std::abs (w - kW) <= 8 ? 0 : (std::abs (w - kLargeW) <= 8 ? 1 : -1));
+}
+
+void DrUmsEditor::setScale (int index)
+{
+    const int w = index == 1 ? kLargeW : kW;
+    setSize (w, (int) std::lround (w * (double) kH / kW));
+}
+
+void DrUmsEditor::applyLanguage()
+{
+    libraryBtn.setCaption (ui::tr ("БИБЛИОТЕКА", "LIBRARY"));
+    styleBtn.setCaption (ui::tr ("СТИЛЬ", "STYLE"));
+    sigBox.setCaption (ui::tr ("РАЗМЕР", "TIME SIG."));
+
+    juce::StringArray parts;
+    for (int i = 0; i < kNumParts; ++i)
+        parts.add (ui::partLabel ((Part) i));
+    partBox.setItems (parts);
+
+    grooves.refreshLanguage();
+    backdrop.repaint();
+    status.setText ({}, juce::dontSendNotification);
 }
 
 void DrUmsEditor::refresh()
 {
+    if (shownLang != loc::get())
+    {
+        shownLang = loc::get();
+        applyLanguage();
+    }
+
     libraryBtn.setValue (proc.currentMap().name);
     styleBtn.setValue (juce::String (styleName (proc.getStyle())));
     partBox.setSelected ((int) proc.getPart());
@@ -195,6 +246,9 @@ void DrUmsEditor::timerCallback()
 
     if (statusTicks > 0 && --statusTicks == 0)
         status.setText ({}, juce::dontSendNotification);
+
+    if (sizeSaveTicks > 0 && --sizeSaveTicks == 0)
+        proc.saveEditorWidth (getWidth());
 }
 
 void DrUmsEditor::say (const juce::String& text)
@@ -207,9 +261,9 @@ void DrUmsEditor::saveToGrooves()
 {
     juce::String name;
     if (proc.saveGroove (name))
-        say (ru ("Сохранено в GROOVES: ") + name);
+        say (ui::tr ("Сохранено в GROOVES: ", "Saved to GROOVES: ") + name);
     else
-        say (ru ("Не удалось сохранить в ") + proc.getMidiFolder().getFullPathName());
+        say (ui::tr ("Не удалось сохранить в ", "Could not save to ") + proc.getMidiFolder().getFullPathName());
 }
 
 void DrUmsEditor::showLibraryMenu()
@@ -246,11 +300,15 @@ void DrUmsEditor::showStyleMenu()
 void DrUmsEditor::showSettingsMenu()
 {
     juce::PopupMenu m;
-    m.addItem (100, ru ("Папка для MIDI-файлов:"), false);
+    m.addItem (100, ui::tr ("Папка для MIDI-файлов:", "MIDI files folder:"), false);
     m.addItem (101, proc.getMidiFolder().getFullPathName(), false);
     m.addSeparator();
-    m.addItem (1, ru ("Выбрать папку…"));
-    m.addItem (2, ru ("Открыть папку"));
+    m.addItem (1, ui::tr ("Выбрать папку…", "Choose folder…"));
+    m.addItem (2, ui::tr ("Открыть папку", "Open folder"));
+    m.addSeparator();
+    m.addItem (200, ui::tr ("Язык интерфейса:", "Interface language:"), false);
+    m.addItem (10, juce::String::fromUTF8 ("Русский"), true, loc::isRu());
+    m.addItem (11, "English", true, ! loc::isRu());
 
     juce::Component::SafePointer<DrUmsEditor> safe (this);
     m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&gearBtn),
@@ -259,13 +317,21 @@ void DrUmsEditor::showSettingsMenu()
                          if (safe == nullptr)
                              return;
 
-                         if (r == 2)
+                         if (r == 10)
+                         {
+                             safe->proc.setLanguage (loc::Lang::Ru);
+                         }
+                         else if (r == 11)
+                         {
+                             safe->proc.setLanguage (loc::Lang::En);
+                         }
+                         else if (r == 2)
                          {
                              safe->proc.getMidiFolder().revealToUser();
                          }
                          else if (r == 1)
                          {
-                             safe->chooser = std::make_unique<juce::FileChooser> (ru ("Папка для MIDI-файлов"),
+                             safe->chooser = std::make_unique<juce::FileChooser> (ui::tr ("Папка для MIDI-файлов", "MIDI files folder"),
                                                                                    safe->proc.getMidiFolder());
                              safe->chooser->launchAsync (juce::FileBrowserComponent::openMode
                                                              | juce::FileBrowserComponent::canSelectDirectories,
