@@ -15,19 +15,10 @@ namespace ui
 inline juce::String ru (const char* utf8) { return juce::String::fromUTF8 (utf8); }
 inline juce::String tr (const char* ru, const char* en) { return loc::tr (ru, en); }
 
-// Названия частей песни для интерфейса (в именах файлов остаются английские).
+// Названия частей песни в интерфейсе одинаковы в обеих локализациях (так принято у музыкантов).
 inline juce::String partLabel (drums::Part p)
 {
-    switch (p)
-    {
-        case drums::Part::Intro:     return tr ("интро", "intro");
-        case drums::Part::Verse:     return tr ("куплет", "verse");
-        case drums::Part::Bridge:    return tr ("бридж", "bridge");
-        case drums::Part::Chorus:    return tr ("припев", "chorus");
-        case drums::Part::Fill:      return tr ("филл", "fill");
-        case drums::Part::Breakdown: return tr ("брейкдаун", "breakdown");
-    }
-    return {};
+    return juce::String (drums::partName (p)).toLowerCase();
 }
 
 // Уменьшение картинки вдвое по шагам: билинейная выборка точно посередине между пикселями
@@ -166,12 +157,12 @@ inline const juce::Image& ratImage()
     return img;
 }
 
-// Кнопка блокировки: не нажата — чёрная крыса на белом, нажата — белая крыса на чёрном.
+// Кнопка блокировки: не нажата — белая крыса на чёрном, нажата — чёрная крыса на белом.
 inline void drawLock (juce::Graphics& g, juce::Rectangle<float> r, bool locked, juce::Colour tint)
 {
-    const auto bg = locked ? juce::Colour (0xFF0B0D12) : juce::Colours::white;
-    const auto fg = locked ? juce::Colours::white : juce::Colours::black;
-    const auto edge = locked ? tint : juce::Colours::black;
+    const auto bg = locked ? juce::Colours::white : juce::Colour (0xFF0B0D12);
+    const auto fg = locked ? juce::Colours::black : juce::Colours::white;
+    const auto edge = locked ? tint : juce::Colour (0xFF5A667D);
 
     g.setColour (bg);
     g.fillRoundedRectangle (r.reduced (1.5f), 10.0f);

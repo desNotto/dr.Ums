@@ -2,13 +2,35 @@
 
 namespace drums
 {
+Style styleFromVar (const juce::var& v)
+{
+    if (v.isString())
+    {
+        const auto name = v.toString();
+        for (int i = 0; i < kNumStyles; ++i)
+            if (name == styleSlug ((Style) i))
+                return (Style) i;
+        return Style::Djent;
+    }
+
+    switch ((int) v)
+    {
+        case 0:  return Style::Djent;
+        case 1:  return Style::Metalcore;
+        case 2:  return Style::IndieRock;
+        case 3:  return Style::IndieRock;
+        case 4:  return Style::PostMetal;
+        default: return Style::Djent;
+    }
+}
+
 juce::var patternToVar (const Pattern& p)
 {
     auto* o = new juce::DynamicObject();
     o->setProperty ("num", p.numerator);
     o->setProperty ("den", p.denominator);
     o->setProperty ("bars", p.bars);
-    o->setProperty ("style", (int) p.style);
+    o->setProperty ("style", juce::String (styleSlug (p.style)));
     o->setProperty ("part", (int) p.part);
 
     juce::Array<juce::var> hits;
@@ -39,7 +61,7 @@ Pattern patternFromVar (const juce::var& v)
     }
 
     p.bars  = juce::jlimit (1, 8, (int) v.getProperty ("bars", 4));
-    p.style = (Style) juce::jlimit (0, kNumStyles - 1, (int) v.getProperty ("style", 0));
+    p.style = styleFromVar (v.getProperty ("style", juce::var (0)));
     p.part  = (Part)  juce::jlimit (0, kNumParts - 1,  (int) v.getProperty ("part", 1));
 
     const auto hitsVar = v.getProperty ("hits", juce::var());

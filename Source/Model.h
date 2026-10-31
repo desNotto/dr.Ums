@@ -10,9 +10,9 @@ namespace drums
 enum class Lane  { Kick = 0, Snare, Toms, Cymbals };
 constexpr int kNumLanes = 4;
 
-enum class Style { Djent = 0, Metalcore, IndieRock, DrumAndBass, PostMetal };
+enum class Style { Djent = 0, Metalcore, Deathcore, BlackMetal, PostMetal, IndieRock };
 enum class Part  { Intro = 0, Verse, Bridge, Chorus, Fill, Breakdown };
-constexpr int kNumStyles = 5;
+constexpr int kNumStyles = 6;
 constexpr int kNumParts  = 6;
 
 // Абстрактный "голос" барабана. В MIDI-ноту он превращается через DrumMap,
@@ -59,12 +59,12 @@ inline Lane laneOf (Art a)
 
 inline const char* styleName (Style s)
 {
-    static const char* n[] = { "Djent", "Metalcore", "Indie Rock", "Drum & Bass", "Post-metal" };
+    static const char* n[] = { "Djent", "Metalcore", "Deathcore", "Black-metal", "Post-metal", "Indie Rock" };
     return n[(int) s];
 }
 inline const char* styleSlug (Style s)
 {
-    static const char* n[] = { "djent", "metalcore", "indierock", "dnb", "postmetal" };
+    static const char* n[] = { "djent", "metalcore", "deathcore", "blackmetal", "postmetal", "indierock" };
     return n[(int) s];
 }
 inline const char* partName (Part p)
@@ -106,6 +106,10 @@ inline bool validTimeSig (int num, int den)
 {
     return num >= 1 && num <= 32 && (den == 2 || den == 4 || den == 8 || den == 16);
 }
+
+// Стиль хранится строкой (slug); числа из старых сохранений понимаем: 0 Djent, 1 Metalcore, 2 Indie Rock,
+// 3 (бывший Drum & Bass, теперь Indie Rock), 4 Post-metal.
+Style styleFromVar (const juce::var& v);
 
 juce::var patternToVar (const Pattern& p);
 Pattern patternFromVar (const juce::var& v);

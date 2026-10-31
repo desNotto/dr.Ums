@@ -212,7 +212,7 @@ void DrUmsProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto* o = new juce::DynamicObject();
     o->setProperty ("map", mapIndex);
-    o->setProperty ("style", (int) style);
+    o->setProperty ("style", juce::String (styleSlug (style)));
     o->setProperty ("part", (int) part);
     o->setProperty ("num", num);
     o->setProperty ("den", den);
@@ -234,7 +234,7 @@ void DrUmsProcessor::setStateInformation (const void* data, int sizeInBytes)
         return;
 
     mapIndex = juce::jlimit (0, (int) builtinMaps().size() - 1, (int) v.getProperty ("map", 0));
-    style = (Style) juce::jlimit (0, kNumStyles - 1, (int) v.getProperty ("style", 0));
+    style = styleFromVar (v.getProperty ("style", juce::var (0)));
     part  = (Part)  juce::jlimit (0, kNumParts - 1,  (int) v.getProperty ("part", 1));
 
     const int n = (int) v.getProperty ("num", 4);
