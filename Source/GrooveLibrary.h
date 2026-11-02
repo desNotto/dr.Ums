@@ -25,6 +25,9 @@ public:
     // Имя вида drum_%style%_%part%_XXXX
     bool add (const drums::Pattern& pattern, const drums::DrumMap& map, juce::String& nameOut);
 
+    // Убирает грув из списка; файл .mid уходит в корзину (если корзина недоступна, удаляется).
+    bool remove (int id);
+
 private:
     void load();
     bool writeIndex() const;

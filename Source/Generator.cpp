@@ -158,7 +158,7 @@ namespace
                 f.crashEvery = metalish ? 0.30f : 0.05f;
                 break;
             case Part::Breakdown:
-                f.crash1 = 0.9f;    f.crash3 = 0.6f;  f.endAccent = 0.3f; f.fill = 0.3f;
+                f.crash1 = 0.9f;    f.crash3 = 0.6f;  f.endAccent = 0.3f; f.fill = 0.22f;
                 f.crashEvery = (metalish || post) ? 0.55f : 0.30f;
                 f.kickDouble = style == Style::Djent ? 0.35f : (style == Style::Deathcore ? 0.30f : (post ? 0.15f : 0.20f));
                 if (style == Style::Djent || style == Style::Metalcore || style == Style::Deathcore)
@@ -383,7 +383,8 @@ namespace
         Tribal,      // «племенной» томовый грув (post-metal)
         Layered,     // слои: кик, затем томы, затем тарелки, затем всё вместе
         BuildUp,     // нарастание: ролл снейра с усилением громкости
-        Atmos        // атмосфера: свеллы тарелок, редкие томы
+        Atmos,       // атмосфера: свеллы тарелок, редкие томы
+        BreakdownRiff // брейкдаун: повторяющийся риф по строгим правилам
     };
 
     // Какие рецепты характерны для каждого жанра и части песни. Источники: разбор присланных песен
@@ -402,7 +403,7 @@ namespace
                     case Part::Bridge:    return { { F::HalfTime, .28f }, { F::Atmos, .18f }, { F::BuildUp, .20f }, { F::Chug, .14f }, { F::Tribal, .12f }, { F::Layered, .08f } };
                     case Part::Chorus:    return { { F::Backbeat, .28f }, { F::DoubleBass, .20f }, { F::Chug, .20f }, { F::Gallop, .10f }, { F::HalfTime, .10f }, { F::TwoStep, .12f } };
                     case Part::Fill:      return { { F::Backbeat, .40f }, { F::Chug, .30f }, { F::DoubleBass, .30f } };
-                    case Part::Breakdown: return { { F::Chug, .40f }, { F::Bounce, .25f }, { F::HalfTime, .20f }, { F::DoubleBass, .15f } };
+                    case Part::Breakdown: return { { F::BreakdownRiff, 1.0f } };
                 }
                 break;
             case Style::Metalcore:
@@ -413,7 +414,7 @@ namespace
                     case Part::Bridge:    return { { F::HalfTime, .28f }, { F::BuildUp, .26f }, { F::Atmos, .14f }, { F::TwoStep, .14f }, { F::Backbeat, .18f } };
                     case Part::Chorus:    return { { F::Backbeat, .28f }, { F::DoubleBass, .24f }, { F::Gallop, .20f }, { F::TwoStep, .16f }, { F::Skank, .12f } };
                     case Part::Fill:      return { { F::Backbeat, .40f }, { F::DoubleBass, .30f }, { F::Gallop, .30f } };
-                    case Part::Breakdown: return { { F::Chug, .36f }, { F::Bounce, .22f }, { F::HalfTime, .26f }, { F::TwoStep, .16f } };
+                    case Part::Breakdown: return { { F::BreakdownRiff, 1.0f } };
                 }
                 break;
             case Style::Deathcore:
@@ -424,7 +425,7 @@ namespace
                     case Part::Bridge:    return { { F::HalfTime, .24f }, { F::BuildUp, .24f }, { F::Bounce, .26f }, { F::Atmos, .14f }, { F::Chug, .12f } };
                     case Part::Chorus:    return { { F::DoubleBass, .24f }, { F::BlastHammer, .14f }, { F::BlastBomb, .14f }, { F::Gallop, .14f }, { F::Backbeat, .16f }, { F::TwoStep, .18f } };
                     case Part::Fill:      return { { F::DoubleBass, .40f }, { F::BlastTrad, .30f }, { F::Chug, .30f } };
-                    case Part::Breakdown: return { { F::Bounce, .46f }, { F::Chug, .24f }, { F::HalfTime, .20f }, { F::DoubleBass, .10f } };
+                    case Part::Breakdown: return { { F::BreakdownRiff, 1.0f } };
                 }
                 break;
             case Style::BlackMetal:
@@ -435,7 +436,7 @@ namespace
                     case Part::Bridge:    return { { F::Doom, .30f }, { F::Atmos, .24f }, { F::HalfTime, .14f }, { F::Tribal, .10f }, { F::Skank, .12f }, { F::BuildUp, .10f } };
                     case Part::Chorus:    return { { F::BlastHammer, .26f }, { F::BlastTrad, .24f }, { F::BlastBomb, .10f }, { F::Skank, .20f }, { F::DoubleBass, .20f } };
                     case Part::Fill:      return { { F::BlastTrad, .40f }, { F::DoubleBass, .30f }, { F::Skank, .30f } };
-                    case Part::Breakdown: return { { F::Doom, .36f }, { F::HalfTime, .22f }, { F::Atmos, .20f }, { F::Bounce, .10f }, { F::Chug, .12f } };
+                    case Part::Breakdown: return { { F::BreakdownRiff, .60f }, { F::Doom, .25f }, { F::Atmos, .15f } };
                 }
                 break;
             case Style::PostMetal:
@@ -446,7 +447,7 @@ namespace
                     case Part::Bridge:    return { { F::Tribal, .30f }, { F::Atmos, .24f }, { F::BuildUp, .24f }, { F::Layered, .22f } };
                     case Part::Chorus:    return { { F::Doom, .30f }, { F::HalfTime, .24f }, { F::Chug, .20f }, { F::Tribal, .10f }, { F::Backbeat, .16f } };
                     case Part::Fill:      return { { F::Tribal, .40f }, { F::HalfTime, .30f }, { F::Backbeat, .30f } };
-                    case Part::Breakdown: return { { F::Doom, .36f }, { F::Chug, .24f }, { F::HalfTime, .24f }, { F::Tribal, .16f } };
+                    case Part::Breakdown: return { { F::BreakdownRiff, .45f }, { F::Doom, .30f }, { F::Tribal, .25f } };
                 }
                 break;
             case Style::IndieRock:
@@ -457,7 +458,7 @@ namespace
                     case Part::Bridge:    return { { F::HalfTime, .28f }, { F::BuildUp, .24f }, { F::Atmos, .18f }, { F::Layered, .16f }, { F::Tribal, .14f } };
                     case Part::Chorus:    return { { F::Backbeat, .50f }, { F::Skank, .14f }, { F::TwoStep, .16f }, { F::HalfTime, .10f }, { F::BuildUp, .10f } };
                     case Part::Fill:      return { { F::Backbeat, .60f }, { F::Tribal, .20f }, { F::Skank, .20f } };
-                    case Part::Breakdown: return { { F::HalfTime, .34f }, { F::Tribal, .30f }, { F::Backbeat, .20f }, { F::Layered, .16f } };
+                    case Part::Breakdown: return { { F::BreakdownRiff, .50f }, { F::Tribal, .30f }, { F::HalfTime, .20f } };
                 }
                 break;
         }
@@ -488,6 +489,7 @@ namespace
             case Feel::BlastTrad:
             case Feel::BlastHammer:
             case Feel::BlastBomb:
+            case Feel::BreakdownRiff:
             case Feel::BuildUp:    break;
         }
         return { { V::Back, 1.0f } };
@@ -599,6 +601,7 @@ namespace
             case Feel::Tribal:
             case Feel::Layered:
             case Feel::BuildUp:
+            case Feel::BreakdownRiff:
             case Feel::Atmos:      break;
         }
         return leadTable (style, part);
@@ -971,6 +974,7 @@ namespace
                     case Feel::Tribal:
                     case Feel::Layered:
                     case Feel::BuildUp:
+                    case Feel::BreakdownRiff:
                     case Feel::Atmos:   // скэнк (остальные сюда не попадают)
                     {
                         for (int i = 0; i < g.groups(); ++i)
@@ -1103,9 +1107,355 @@ namespace
             case Feel::BlastTrad:
             case Feel::BlastHammer:
             case Feel::BlastBomb:
+            case Feel::BreakdownRiff:
             case Feel::BuildUp:    break;
         }
         return KickMode::Rock;
+    }
+
+    // ================================================================ брейкдаун: строгие правила
+    // Брейкдаун — это один повторяющийся риф, а не набор случайностей. Правила (по описаниям жанра
+    // и разбору песен): 1) полутайм: снейр один раз за такт на третьей доле, без гост-нот;
+    // 2) кик повторяет «чаг» гитары: рисунок из ячеек по 2-4 шага, одинаковый от такта к такту
+    // (мотив на 1 или 2 такта); 3) тарелка-метроном одна на всю фразу, чаще четвертями (чайна, крэш,
+    // колокол, хэт); 4) акценты тарелок только вместе с киком; 5) очереди кика шестнадцатыми только
+    // в конце такта, между ячейками остаются паузы; 6) первый такт начинается ударом кик + крэш.
+
+    std::vector<int> cellStarts (const std::vector<int>& cells)
+    {
+        std::vector<int> st;
+        int s = 0;
+        for (int c : cells)
+        {
+            st.push_back (s);
+            s += c;
+        }
+        return st;
+    }
+
+    // Ячейки риффа: 3 и 4 шага в основном, иногда 2 и 6; без кусочков в 1 шаг и без двух двоек подряд.
+    std::vector<int> syncCells (int total, juce::Random& rng)
+    {
+        for (int attempt = 0; attempt < 60; ++attempt)
+        {
+            std::vector<int> cells;
+            int sum = 0;
+            while (sum < total)
+            {
+                const float r = rng.nextFloat();
+                int len = r < 0.45f ? 3 : (r < 0.80f ? 4 : (r < 0.92f ? 2 : 6));
+                len = juce::jmin (len, total - sum);
+                if (len == 1 && ! cells.empty())
+                {
+                    cells.back() += 1;
+                    sum += 1;
+                    continue;
+                }
+                cells.push_back (len);
+                sum += len;
+            }
+
+            bool ok = cells.size() >= 3 && cells.size() <= 6 && cells.front() >= 3;
+            for (size_t i = 1; i < cells.size(); ++i)
+                if (cells[i] == 2 && cells[i - 1] == 2)
+                    ok = false;
+            if (ok)
+                return cells;
+        }
+        return { total };
+    }
+
+    // Один такт кика. kind: 0 четверти, 1 половинки, 2 синкопы, 3 синкопы + очередь в конце, 4 медленно.
+    std::vector<int> bdKickBar (int kind, Style style, const Grid& g, juce::Random& rng)
+    {
+        const int spb = g.spb;
+        if (spb < 8)
+            return g.starts;
+
+        std::vector<int> k;
+        std::vector<int> cells;
+
+        switch (kind)
+        {
+            case 0:
+                k = g.starts;
+                break;
+
+            case 1:
+                k = { 0, spb / 2 };
+                if (rng.nextFloat() < 0.30f)
+                    k.push_back (spb - 2);
+                break;
+
+            case 2:
+                cells = syncCells (spb, rng);
+                k = cellStarts (cells);
+                break;
+
+            case 3:
+            {
+                const int burst = 3 + rng.nextInt (2);
+                cells = syncCells (spb - burst, rng);
+                k = cellStarts (cells);
+                for (int i = 0; i < burst; ++i)
+                    k.push_back (spb - burst + i);
+                break;
+            }
+
+            default:
+            {
+                static const std::vector<std::vector<int>> slow = { { 8, 8 }, { 6, 6, 4 }, { 8, 4, 4 }, { 6, 2, 8 }, { 10, 6 } };
+                const auto& t = slow[(size_t) rng.nextInt ((int) slow.size())];
+                int s = 0;
+                for (int c : t)
+                {
+                    k.push_back (juce::jmin (spb - 1, s * spb / 16));
+                    s += c;
+                }
+                break;
+            }
+        }
+
+        // 16-я после начала ячейки («дабл» гитарного чага): решается один раз и потом повторяется в каждом такте
+        const float dbl = style == Style::Djent ? 0.30f : (style == Style::Deathcore ? 0.30f : (style == Style::Metalcore ? 0.20f
+                          : (style == Style::PostMetal ? 0.10f : (style == Style::BlackMetal ? 0.05f : 0.0f))));
+        if (kind == 2 || kind == 3)
+        {
+            const auto base = k;
+            for (size_t i = 0; i < cells.size() && i < base.size(); ++i)
+                if (cells[i] >= 3 && rng.nextFloat() < dbl)
+                    k.push_back (base[i] + 1);
+        }
+
+        std::sort (k.begin(), k.end());
+        k.erase (std::unique (k.begin(), k.end()), k.end());
+        return k;
+    }
+
+    // Мотив на 4 такта: A A A A или A B A B; в последнем такте иногда «поворот» (очередь или пауза).
+    std::vector<std::vector<int>> bdKickMotif (Style style, const Grid& g, int bars, juce::Random& rng, int* kindOut = nullptr)
+    {
+        const int spb = g.spb;
+        std::vector<std::pair<int, float>> kinds;
+        switch (style)
+        {
+            case Style::Djent:      kinds = { { 2, .60f }, { 0, .15f }, { 3, .15f }, { 1, .10f } }; break;
+            case Style::Metalcore:  kinds = { { 2, .35f }, { 0, .30f }, { 3, .20f }, { 1, .15f } }; break;
+            case Style::Deathcore:  kinds = { { 3, .45f }, { 2, .35f }, { 0, .10f }, { 1, .10f } }; break;
+            case Style::PostMetal:  kinds = { { 4, .50f }, { 1, .25f }, { 0, .25f } }; break;
+            case Style::BlackMetal: kinds = { { 4, .60f }, { 1, .30f }, { 0, .10f } }; break;
+            case Style::IndieRock:  kinds = { { 0, .50f }, { 1, .30f }, { 2, .20f } }; break;
+        }
+        const int kind = pickWeighted (kinds, rng);
+        if (kindOut != nullptr)
+            *kindOut = kind;
+
+        const auto A = bdKickBar (kind, style, g, rng);
+        auto B = A;
+        const bool twoBarMotif = (kind == 2 || kind == 3) && rng.nextFloat() < 0.45f;
+        if (twoBarMotif)
+        {
+            const float r = rng.nextFloat();
+            if (r < 0.5f)
+                B = bdKickBar (kind, style, g, rng);
+            else if (r < 0.75f && B.size() > 2)
+                B.erase (B.end() - 1);
+            else
+                for (int i = 0; i < 3; ++i)
+                    B.push_back (spb - 3 + i);
+            std::sort (B.begin(), B.end());
+            B.erase (std::unique (B.begin(), B.end()), B.end());
+        }
+
+        std::vector<std::vector<int>> out ((size_t) bars);
+        for (int bar = 0; bar < bars; ++bar)
+            out[(size_t) bar] = (twoBarMotif && bar % 2 == 1) ? B : A;
+
+        // «поворот» в конце фразы: очередь шестнадцатых или пауза в последней четверти
+        if (bars > 1 && spb >= 8 && rng.nextFloat() < 0.35f)
+        {
+            auto& last = out[(size_t) (bars - 1)];
+            last.erase (std::remove_if (last.begin(), last.end(), [&] (int s) { return s >= (spb * 3) / 4; }), last.end());
+            if (rng.nextBool())
+                for (int i = 0; i < 4; ++i)
+                    last.push_back (spb - 4 + i);
+        }
+        return out;
+    }
+
+    HitVec bdSnare (const Grid& g, int bars, bool twoStep, juce::Random& rng)
+    {
+        HitVec out;
+        const int n = g.groups();
+        for (int bar = 0; bar < bars; ++bar)
+        {
+            if (twoStep)
+            {
+                for (int i = 1; i < n; i += 2)
+                    out.push_back ({ bar * g.spb + g.starts[(size_t) i], Art::Snare, jit (rng, 114, 4) });
+            }
+            else
+            {
+                out.push_back ({ bar * g.spb + g.starts[(size_t) (n / 2)], Art::Snare, jit (rng, 120, 4) });
+            }
+        }
+        return out;
+    }
+
+    // Тарелки брейкдауна: метроном на всю фразу + акценты вместе с киком.
+    HitVec bdCymbals (Style style, const Grid& g, int bars, const std::vector<std::vector<int>>& kicks, bool slow,
+                      juce::Random& rng)
+    {
+        const int spb = g.spb;
+        const int snareStep = g.starts[(size_t) (g.groups() / 2)];
+        HitVec out;
+
+        enum Tk { China, Crash, RideBell, Hat, RideBow };
+        std::vector<std::pair<int, float>> tks;
+        switch (style)
+        {
+            case Style::Djent:      tks = { { China, .35f }, { Crash, .25f }, { RideBell, .15f }, { Hat, .15f }, { RideBow, .10f } }; break;
+            case Style::Metalcore:  tks = { { Crash, .35f }, { China, .30f }, { Hat, .15f }, { RideBell, .10f }, { RideBow, .10f } }; break;
+            case Style::Deathcore:  tks = { { China, .40f }, { Crash, .35f }, { Hat, .10f }, { RideBell, .15f } }; break;
+            case Style::PostMetal:  tks = { { Crash, .35f }, { RideBell, .30f }, { China, .20f }, { RideBow, .15f } }; break;
+            case Style::BlackMetal: tks = { { RideBell, .35f }, { Crash, .35f }, { China, .15f }, { RideBow, .15f } }; break;
+            case Style::IndieRock:  tks = { { RideBow, .30f }, { Hat, .30f }, { Crash, .25f }, { RideBell, .15f } }; break;
+        }
+        const int tk = pickWeighted (tks, rng);
+
+        Art art = Art::China;
+        if (tk == Crash)         art = rng.nextFloat() < 0.8f ? Art::CrashRight : Art::CrashLeft;
+        else if (tk == RideBell) art = Art::RideBell;
+        else if (tk == Hat)      art = Art::HatClosedTip;
+        else if (tk == RideBow)  art = Art::RideBow;
+
+        // плотность метронома: четверти, восьмые или половинки (в медленных)
+        const int dens = slow ? pickWeighted<int> ({ { 0, .60f }, { 2, .40f } }, rng)
+                              : pickWeighted<int> ({ { 0, .80f }, { 1, .14f }, { 2, .06f } }, rng);
+        std::vector<int> steps;
+        if (dens == 1)
+            for (int s = 0; s < spb; s += 2) steps.push_back (s);
+        else if (dens == 2)
+            for (int i = 0; i < g.groups(); i += 2) steps.push_back (g.starts[(size_t) i]);
+        else
+            steps = g.starts;
+
+        for (int bar = 0; bar < bars; ++bar)
+            for (int s : steps)
+                out.push_back ({ bar * spb + s, art, jit (rng, s == 0 ? 106 : 96, 3) });
+
+        auto place = [&] (int abs, Art a, int vel)
+        {
+            eraseAt (out, abs);
+            out.push_back ({ abs, a, jit (rng, vel, 2) });
+        };
+
+        // удар кик + крэш (или чайна) в начале; затем такты с таким же акцентом по одному из рисунков
+        CrashSeq cs;
+        cs.prev = art == Art::CrashRight ? 1 : (art == Art::CrashLeft ? 0 : -1);
+        const Art accent = (art == Art::China || art == Art::RideBell || art == Art::HatClosedTip || art == Art::RideBow)
+                               ? cs.next (rng)
+                               : (rng.nextBool() ? Art::China : (art == Art::CrashRight ? Art::CrashLeft : Art::CrashRight));
+
+        static const bool pat[4][4] = { { 1, 0, 0, 0 }, { 1, 1, 1, 1 }, { 1, 0, 1, 0 }, { 1, 0, 0, 1 } };
+        const int pi = pickWeighted<int> ({ { 0, .30f }, { 1, .25f }, { 2, .30f }, { 3, .15f } }, rng);
+        for (int bar = 0; bar < bars; ++bar)
+            if (pat[pi][juce::jmin (bar, 3)])
+                place (bar * spb, accent, 120);
+
+        // унисон с кик-ячейками: одни и те же места во всех тактах, где там есть кик
+        const float p = style == Style::Deathcore ? 0.45f : (style == Style::Djent ? 0.35f : (style == Style::Metalcore ? 0.30f
+                        : (style == Style::PostMetal ? 0.25f : (style == Style::BlackMetal ? 0.15f : 0.10f))));
+        const Art unison = art == Art::China ? Art::CrashRight : Art::China;
+        std::vector<int> cand;
+        for (int s : kicks[0])
+            if (s != 0 && s != snareStep && s % 2 == 0)
+                cand.push_back (s);
+        int chosen = 0;
+        for (int s : cand)
+            if (chosen < 2 && rng.nextFloat() < p)
+            {
+                ++chosen;
+                for (int bar = 0; bar < bars; ++bar)
+                    if (std::find (kicks[(size_t) bar].begin(), kicks[(size_t) bar].end(), s) != kicks[(size_t) bar].end())
+                        place (bar * spb + s, unison, 112);
+            }
+
+        return out;
+    }
+
+    Lanes breakdownLanes (Style style, const Grid& g, int bars, juce::Random& rng)
+    {
+        Lanes L;
+        const int spb = g.spb;
+        int kind = 0;
+        auto kicks = bdKickMotif (style, g, bars, rng, &kind);
+
+        const bool twoStep = (style == Style::Metalcore || style == Style::IndieRock) && g.groups() >= 4 && rng.nextFloat() < 0.15f;
+        const int snareStep = g.starts[(size_t) (g.groups() / 2)];
+
+        // под снейром кик играет не всегда: решение одно на всю фразу
+        bool enoughKicks = true;
+        for (const auto& k : kicks)
+            if (k.size() < 3)
+                enoughKicks = false;
+        const bool dropUnderSnare = enoughKicks && ! twoStep && snareStep != 0 && rng.nextFloat() < 0.4f;
+        for (auto& k : kicks)
+            if (dropUnderSnare)
+                k.erase (std::remove (k.begin(), k.end(), snareStep), k.end());
+
+        for (int bar = 0; bar < bars; ++bar)
+            for (int s : kicks[(size_t) bar])
+                L[(size_t) Lane::Kick].push_back ({ bar * spb + s, Art::Kick, jit (rng, s == 0 ? 114 : 106, 3) });
+
+        L[(size_t) Lane::Snare] = bdSnare (g, bars, twoStep, rng);
+        L[(size_t) Lane::Cymbals] = bdCymbals (style, g, bars, kicks, kind == 4 || kind == 1, rng);
+        return L;
+    }
+
+    // Подходит ли фраза из базы под правила брейкдауна: в каждом такте ровно один удар снейра на третьей доле
+    // (или два на 2 и 4), кик не «двойная бочка», есть тарелка-метроном, мотив кика повторяется.
+    // Последний такт может быть филлом (томы).
+    bool looksLikeBreakdown (const Lanes& L, int spb)
+    {
+        constexpr int bars = 4;
+        std::array<std::vector<int>, bars> kicks, snares;
+        std::array<int, bars> cym {}, toms {};
+
+        for (const auto& h : L[(size_t) Lane::Kick])      kicks[(size_t) juce::jlimit (0, bars - 1, h.step / spb)].push_back (h.step % spb);
+        for (const auto& h : L[(size_t) Lane::Snare])     if (h.velocity >= 75) snares[(size_t) juce::jlimit (0, bars - 1, h.step / spb)].push_back (h.step % spb);
+        for (const auto& h : L[(size_t) Lane::Cymbals])   ++cym[(size_t) juce::jlimit (0, bars - 1, h.step / spb)];
+        for (const auto& h : L[(size_t) Lane::Toms])      ++toms[(size_t) juce::jlimit (0, bars - 1, h.step / spb)];
+
+        for (int bar = 0; bar < bars; ++bar)
+        {
+            if (bar == bars - 1 && toms[(size_t) bar] >= 3)
+                continue;   // последний такт — филл
+
+            auto sn = snares[(size_t) bar];
+            std::sort (sn.begin(), sn.end());
+            const bool half = sn.size() == 1 && sn[0] == spb / 2;
+            const bool two = sn.size() == 2 && sn[0] == spb / 4 && sn[1] == (spb * 3) / 4;
+            if (! half && ! two)
+                return false;
+
+            const int k = (int) kicks[(size_t) bar].size();
+            if (k < 2 || k > 10)
+                return false;
+            if (cym[(size_t) bar] < 2 || cym[(size_t) bar] > 9)
+                return false;
+        }
+
+        auto sim = [] (const std::vector<int>& a, const std::vector<int>& b)
+        {
+            int inter = 0;
+            for (int s : a)
+                if (std::find (b.begin(), b.end(), s) != b.end())
+                    ++inter;
+            const int uni = (int) a.size() + (int) b.size() - inter;
+            return uni > 0 ? (float) inter / (float) uni : 0.0f;
+        };
+        return juce::jmax (sim (kicks[0], kicks[1]), sim (kicks[0], kicks[2]), sim (kicks[1], kicks[2])) >= 0.7f;
     }
 
     // Обычные грувы: кик + снейр + ведущие тарелки; фраза строится по форме (AAAA', AAAB, ABAB, AABB, ABAC).
@@ -1167,6 +1517,10 @@ namespace
 
             case Feel::Atmos:
                 L = atmosLanes (g, bars, f, rng);
+                break;
+
+            case Feel::BreakdownRiff:
+                L = breakdownLanes (style, g, bars, rng);
                 break;
 
             case Feel::Tribal:
@@ -1329,6 +1683,49 @@ namespace
         ok = false;
 
         const Part src = part == Part::Fill ? Part::Verse : part;
+
+        // брейкдаун: берём только фразы, которые проходят строгие правила, остальное делает рецепт
+        if (part == Part::Breakdown)
+        {
+            const Grid gb = makeGrid (4, 4);
+            const Prof fb = makeProfile (style, part);
+            for (int attempt = 0; attempt < 14 && ! ok; ++attempt)
+            {
+                const auto* ph = pickPhrase (part, style, 4, rng);
+                if (ph == nullptr)
+                    break;
+                Lanes T;
+                decodePhrase (*ph, 0, T, rng);
+                T[(size_t) Lane::Snare].erase (std::remove_if (T[(size_t) Lane::Snare].begin(), T[(size_t) Lane::Snare].end(), isGhost),
+                                               T[(size_t) Lane::Snare].end());
+                if (looksLikeBreakdown (T, 16))
+                {
+                    L = T;
+                    ok = true;
+                }
+            }
+            if (! ok)
+                return L;
+
+            if (rng.nextFloat() < 0.25f)
+            {
+                std::vector<std::vector<int>> kicks (4);
+                for (const auto& h : L[(size_t) Lane::Kick])
+                    kicks[(size_t) (h.step / 16)].push_back (h.step % 16);
+                L[(size_t) Lane::Cymbals] = bdCymbals (style, gb, 4, kicks, false, rng);
+            }
+
+            if (rng.nextFloat() < fb.fill)
+                if (const auto* fl = pickPhrase (Part::Fill, style, 1, rng))   // в брейкдауне только короткий филл в последнем такте
+                {
+                    const int firstBar = 4 - fl->bars;
+                    for (auto& lane : L)
+                        eraseRange (lane, firstBar * 16, 64);
+                    decodePhrase (*fl, firstBar, L, rng);
+                }
+            return L;
+        }
+
         const auto* main = pickPhrase (src, style, 4, rng);
         if (main == nullptr)
             return L;
@@ -1505,7 +1902,7 @@ Pattern generate (Style style, Part part, int num, int den, juce::Random& rng)
     bool done = false;
 
     // примерно в половине случаев берём реальную фразу из базы (если для стиля и части она есть)
-    if (corpusUsable (num, den) && rng.nextFloat() < 0.5f)
+    if (corpusUsable (num, den) && rng.nextFloat() < (part == Part::Breakdown ? 0.3f : 0.5f))
         L = corpusLanes (style, part, rng, done);
 
     if (! done)
@@ -1527,6 +1924,7 @@ Pattern regenerateLane (const Pattern& cur, Lane lane, juce::Random& rng)
     const int bars = cur.bars;
     const int fillStart = detectFillStart (cur);
     const bool blast = isBlastish (cur);
+    const bool bd = cur.part == Part::Breakdown && ! blast;
 
     Lanes L = splitLanes (cur);
     const bool half = isHalfFeel (L[(size_t) Lane::Snare]);
@@ -1545,7 +1943,18 @@ Pattern regenerateLane (const Pattern& cur, Lane lane, juce::Random& rng)
 
     if (lane == Lane::Snare)
     {
-        if (blast)
+        if (bd)
+        {
+            // брейкдаун: снейр строго по правилам (на третьей доле; two-step сохраняется, если он был)
+            bool twoStep = false;
+            for (const auto& h : L[(size_t) Lane::Snare])
+                if (h.velocity >= 75 && (h.step % 16 == 4 || h.step % 16 == 12))
+                    twoStep = true;
+            for (const auto& h : bdSnare (g, bars, twoStep, rng))
+                if (h.step < limit)
+                    fresh.push_back (h);
+        }
+        else if (blast)
         {
             // варианты бласта: по нечётным шестнадцатым / по чётным (вместе с киком) / на «и» (скэнк)
             const int kind = rng.nextInt (3);
@@ -1582,7 +1991,16 @@ Pattern regenerateLane (const Pattern& cur, Lane lane, juce::Random& rng)
     {
         bool done = false;
 
-        if (blast)
+        if (bd)
+        {
+            std::vector<std::vector<int>> kicks ((size_t) bars);
+            for (const auto& h : L[(size_t) Lane::Kick])
+                kicks[(size_t) juce::jlimit (0, bars - 1, h.step / spb)].push_back (h.step % spb);
+            fresh = bdCymbals (cur.style, g, bars, kicks, false, rng);
+            done = true;
+        }
+
+        if (! done && blast)
         {
             // тарелка вместе с киком или с каждым ударом, голос — райд, хэт, крэш или чайна
             const bool onAll = rng.nextBool();
@@ -1638,7 +2056,15 @@ Pattern regenerateLane (const Pattern& cur, Lane lane, juce::Random& rng)
     }
     else if (lane == Lane::Kick)
     {
-        if (blast)
+        if (bd)
+        {
+            const auto motif = bdKickMotif (cur.style, g, bars, rng);
+            for (int bar = 0; bar < bars; ++bar)
+                for (int st : motif[(size_t) bar])
+                    if (bar * spb + st < limit)
+                        fresh.push_back ({ bar * spb + st, Art::Kick, jit (rng, st == 0 ? 114 : 106, 3) });
+        }
+        else if (blast)
         {
             // относительно снейра: по очереди / вместе с ним / каждая шестнадцатая
             const int kind = rng.nextInt (3);
@@ -1689,7 +2115,8 @@ Pattern regenerateLane (const Pattern& cur, Lane lane, juce::Random& rng)
     }
     else // Toms
     {
-        const float r = rng.nextFloat();
+        // в брейкдауне томы бывают только в филле (или их нет совсем)
+        const float r = bd ? (rng.nextFloat() < 0.6f ? 0.0f : 1.0f) : rng.nextFloat();
         if (r < 0.55f)
         {
             // томовый филл в конце фразы

@@ -198,6 +198,13 @@ bool DrUmsProcessor::saveGroove (juce::String& nameOut)
     return ok;
 }
 
+bool DrUmsProcessor::deleteGroove (int id)
+{
+    const bool ok = library.remove (id);
+    sendChangeMessage();
+    return ok;
+}
+
 juce::File DrUmsProcessor::exportTempMidi (const Pattern& p)
 {
     const auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("dr. Ums");

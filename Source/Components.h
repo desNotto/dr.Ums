@@ -78,8 +78,15 @@ public:
 };
 
 // ------------------------------------------------------------------ иконки
-inline void drawDice (juce::Graphics& g, juce::Rectangle<float> r)
+// Кубик Random: белая плитка с рамкой, чёрные грани и вопросы (инверсия присланного дизайна).
+inline void drawDice (juce::Graphics& g, juce::Rectangle<float> tile)
 {
+    g.setColour (juce::Colours::white);
+    g.fillRoundedRectangle (tile.reduced (1.5f), 10.0f);
+    g.setColour (juce::Colour (0xFF5A667D));
+    g.drawRoundedRectangle (tile.reduced (1.5f), 10.0f, 3.0f);
+
+    const auto r = tile.reduced (tile.getWidth() * 0.15f);
     const auto c = r.getCentre();
     const float R = juce::jmin (r.getWidth(), r.getHeight()) * 0.5f;
 
@@ -96,11 +103,8 @@ inline void drawDice (juce::Graphics& g, juce::Rectangle<float> r)
         hex.lineTo (v[i]);
     hex.closeSubPath();
 
-    g.setColour (juce::Colours::white);
-    g.fillPath (hex);
-
-    g.setColour (juce::Colours::black);
-    const juce::PathStrokeType st (R * 0.09f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+    g.setColour (juce::Colour (0xFF0B0D12));
+    const juce::PathStrokeType st (R * 0.11f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
     g.strokePath (hex, st);
     for (int k : { 1, 3, 5 })
     {
@@ -110,12 +114,12 @@ inline void drawDice (juce::Graphics& g, juce::Rectangle<float> r)
         g.strokePath (l, st);
     }
 
-    g.setFont (boldFont (R * 0.55f));
+    g.setFont (boldFont (R * 0.74f));
     const juce::Point<float> faces[3] = { (c + v[5] + v[0] + v[1]) / 4.0f,
                                           (c + v[1] + v[2] + v[3]) / 4.0f,
                                           (c + v[3] + v[4] + v[5]) / 4.0f };
     for (const auto& f : faces)
-        g.drawText ("?", juce::Rectangle<float> (R * 0.6f, R * 0.6f).withCentre (f), juce::Justification::centred, false);
+        g.drawText ("?", juce::Rectangle<float> (R * 0.7f, R * 0.7f).withCentre (f), juce::Justification::centred, false);
 }
 
 inline void drawGear (juce::Graphics& g, juce::Rectangle<float> r, juce::Colour colour)
@@ -280,7 +284,7 @@ public:
 
         switch (icon)
         {
-            case Icon::Dice:  drawDice (g, r.reduced (shrink + 3.0f)); break;
+            case Icon::Dice:  drawDice (g, r.reduced (shrink)); break;
             case Icon::Lock:  drawLock (g, r.reduced (shrink), getToggleState(), tint); break;
             case Icon::Gear:  drawGearButton (g, r.reduced (down ? 2.0f : 0.0f), over); break;
             case Icon::Play:  drawPlay (g, r.reduced (down ? 7.0f : 5.0f), getToggleState(), over); break;
@@ -291,6 +295,34 @@ public:
 private:
     Icon icon;
     juce::Colour tint { juce::Colours::white };
+};
+
+// Обычная кнопка-таблетка с подписью (в красном варианте для удаления).
+class PillButton : public juce::Button
+{
+public:
+    PillButton() : juce::Button (juce::String()) { setMouseCursor (juce::MouseCursor::PointingHandCursor); }
+
+    void setLabel (const juce::String& t) { if (label != t) { label = t; repaint(); } }
+
+    void paintButton (juce::Graphics& g, bool over, bool down) override
+    {
+        const auto r = getLocalBounds().toFloat().reduced (0.5f);
+        const bool on = isEnabled();
+        const auto accent = col::heart;
+
+        g.setColour (! on ? col::panel : (down ? accent.withAlpha (0.35f) : (over ? accent.withAlpha (0.22f) : col::panelHi)));
+        g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
+        g.setColour (on && over ? accent : col::line);
+        g.drawRoundedRectangle (r, r.getHeight() * 0.5f, 1.0f);
+
+        g.setColour (on ? (over ? juce::Colours::white : col::text) : col::dim.withAlpha (0.5f));
+        g.setFont (boldFont (13.0f));
+        g.drawFittedText (label, getLocalBounds().reduced (12, 2), juce::Justification::centred, 1);
+    }
+
+private:
+    juce::String label;
 };
 
 // Выпадающий список: мелкая подпись сверху и значение крупно (библиотека, стиль).
@@ -834,10 +866,14 @@ class GroovesView : public juce::Component,
 {
 public:
     std::function<void (const GrooveEntry&)> onSelect, onLoad;
+    std::function<void (int)> onDelete;
 
     explicit GroovesView (DrUmsProcessor& p) : proc (p), table (juce::String(), this)
     {
         addAndMakeVisible (table);
+        addAndMakeVisible (deleteBtn);
+        deleteBtn.onClick = [this] { deleteSelected(); };
+        deleteBtn.setEnabled (false);
         table.setRowHeight (30);
         table.setMultipleSelectionEnabled (false);
         table.setOutlineThickness (0);
@@ -870,6 +906,7 @@ public:
 
     void refreshLanguage()
     {
+        deleteBtn.setLabel (tr ("Удалить выбранный", "Delete selected"));
         auto& h = table.getHeader();
         h.setColumnName (1, tr ("Стиль", "Style"));
         h.setColumnName (2, tr ("Часть песни", "Song part"));
@@ -888,6 +925,13 @@ public:
         g.setColour (col::line);
         g.drawRoundedRectangle (r, 16.0f, 1.0f);
 
+        g.setColour (col::dim);
+        g.setFont (plainFont (12.0f));
+        g.drawFittedText (tr ("Двойной клик: загрузить в EDIT   ·   Delete или правая кнопка: удалить",
+                              "Double-click: load into EDIT   ·   Delete key or right-click: delete"),
+                          juce::Rectangle<int> (200, getHeight() - 46, getWidth() - 214, 34),
+                          juce::Justification::centredRight, 1);
+
         if (order.empty())
         {
             g.setColour (col::dim);
@@ -899,7 +943,11 @@ public:
         }
     }
 
-    void resized() override { table.setBounds (getLocalBounds().reduced (10)); }
+    void resized() override
+    {
+        table.setBounds (getLocalBounds().reduced (10).withTrimmedBottom (46));
+        deleteBtn.setBounds (16, getHeight() - 46, 170, 34);
+    }
 
 private:
     const GrooveEntry* entryAt (int row) const
@@ -983,9 +1031,42 @@ private:
 
     void selectedRowsChanged (int lastRowSelected) override
     {
+        deleteBtn.setEnabled (entryAt (lastRowSelected) != nullptr);
         if (const auto* e = entryAt (lastRowSelected))
             if (onSelect)
                 onSelect (*e);
+    }
+
+    void deleteKeyPressed (int lastRowSelected) override { deleteRow (lastRowSelected); }
+
+    void cellClicked (int row, int, const juce::MouseEvent& e) override
+    {
+        if (! e.mods.isPopupMenu() || entryAt (row) == nullptr)
+            return;
+
+        table.selectRow (row);
+        juce::PopupMenu m;
+        m.addItem (1, tr ("Удалить паттерн", "Delete pattern"));
+        juce::Component::SafePointer<GroovesView> safe (this);
+        m.showMenuAsync (juce::PopupMenu::Options(), [safe, row] (int r)
+                         {
+                             if (safe != nullptr && r == 1)
+                                 safe->deleteRow (row);
+                         });
+    }
+
+    void deleteSelected() { deleteRow (table.getSelectedRow()); }
+
+    void deleteRow (int row)
+    {
+        if (const auto* e = entryAt (row))
+        {
+            const int id = e->id;
+            table.deselectAllRows();
+            deleteBtn.setEnabled (false);
+            if (onDelete)
+                onDelete (id);
+        }
     }
 
     void cellDoubleClicked (int row, int, const juce::MouseEvent&) override
@@ -1006,6 +1087,7 @@ private:
 
     DrUmsProcessor& proc;
     juce::TableListBox table;
+    PillButton deleteBtn;
     std::vector<int> order;
     int sortCol = 5;
     bool sortForwards = false;

@@ -69,6 +69,7 @@ public:
 
     bool saveGroove (juce::String& nameOut);
     GrooveLibrary& getLibrary() { return library; }
+    bool deleteGroove (int id);
 
     // общие настройки (хранятся в файле настроек, а не в проекте)
     loc::Lang getLanguage() const { return loc::get(); }

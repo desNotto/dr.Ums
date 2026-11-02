@@ -85,6 +85,15 @@ DrUmsEditor::DrUmsEditor (DrUmsProcessor& p)
         shownGrooveId = e.id;
         proc.setAudition (&e.pattern);
     };
+    grooves.onDelete = [this] (int id)
+    {
+        if (shownGrooveId == id)
+        {
+            shownGrooveId = -1;
+            proc.setAudition (nullptr);
+        }
+        proc.deleteGroove (id);
+    };
     grooves.onLoad = [this] (const GrooveEntry& e)
     {
         shownGrooveId = -1;

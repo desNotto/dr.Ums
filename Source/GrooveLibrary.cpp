@@ -95,3 +95,19 @@ bool GrooveLibrary::add (const drums::Pattern& pattern, const drums::DrumMap& ma
     entries.push_back (std::move (e));
     return writeIndex();
 }
+
+bool GrooveLibrary::remove (int id)
+{
+    for (auto it = entries.begin(); it != entries.end(); ++it)
+        if (it->id == id)
+        {
+            const auto file = it->file;
+            entries.erase (it);
+
+            if (file.existsAsFile() && ! file.moveToTrash())
+                file.deleteFile();
+
+            return writeIndex();
+        }
+    return false;
+}
