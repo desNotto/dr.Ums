@@ -44,6 +44,7 @@ public:
     // ---- состояние (вызывать из потока интерфейса)
     const drums::Pattern& getPattern() const { return pattern; }
     const drums::Pattern& getShownPattern() const { return audition ? *audition : pattern; }
+    bool hasAudition() const { return audition.has_value(); }
 
     drums::Style getStyle() const { return style; }
     drums::Part getPart() const { return part; }
@@ -55,6 +56,11 @@ public:
 
     bool isLocked (drums::Lane l) const { return locked[(size_t) l]; }
     void setLocked (drums::Lane l, bool b) { locked[(size_t) l] = b; sendChangeMessage(); }
+
+    // блокировки и Random для каждого из 4 тактов (окошек превью)
+    bool isBarLocked (int bar) const { return bar >= 0 && bar < 4 && barLocked[(size_t) bar]; }
+    void setBarLocked (int bar, bool b);
+    void randomizeBar (int bar);
 
     void randomizeAll();
     void randomizeLane (drums::Lane lane);
@@ -103,6 +109,7 @@ private:
     int num = 4, den = 4;
     int mapIndex = 0;
     std::array<bool, (size_t) drums::kNumLanes> locked {};
+    drums::BarLocks barLocked {};
     drums::Pattern pattern;
     std::optional<drums::Pattern> audition;
     GrooveLibrary library;

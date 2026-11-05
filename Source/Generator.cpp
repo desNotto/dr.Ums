@@ -2189,4 +2189,88 @@ Pattern mergeLocked (const Pattern& fresh, const Pattern& old, const std::array<
             r = withLane (r, old, (Lane) l);
     return r;
 }
+
+Pattern keepBars (const Pattern& p, const Pattern& old, const BarLocks& bars)
+{
+    Pattern r = p;
+    const int spb = r.stepsPerBar();
+    if (old.stepsPerBar() != spb)
+        return r;
+
+    auto locked = [&] (int step)
+    {
+        const int b = step / spb;
+        return b >= 0 && b < (int) bars.size() && bars[(size_t) b];
+    };
+
+    r.hits.erase (std::remove_if (r.hits.begin(), r.hits.end(), [&] (const Hit& h) { return locked (h.step); }), r.hits.end());
+    for (const auto& h : old.hits)
+        if (locked (h.step) && h.step < r.totalSteps())
+            r.hits.push_back (h);
+
+    sortHits (r.hits);
+    return r;
+}
+
+Pattern mergeLocked (const Pattern& fresh, const Pattern& old, const std::array<bool, (size_t) kNumLanes>& lanes,
+                     const BarLocks& bars)
+{
+    return keepBars (mergeLocked (fresh, old, lanes), old, bars);
+}
+
+Pattern regenerateBar (const Pattern& cur, int bar, const std::array<bool, (size_t) kNumLanes>& lockedLanes,
+                       juce::Random& rng)
+{
+    const int spb = cur.stepsPerBar();
+    if (bar < 0 || bar >= cur.bars)
+        return cur;
+
+    const bool blast = isBlastish (cur);
+    const bool half = isHalfFeel (splitLanes (cur)[(size_t) Lane::Snare]);
+
+    auto barKicks = [&] (const Pattern& p, int b)
+    {
+        std::vector<int> k;
+        for (const auto& h : p.hits)
+            if (h.art == Art::Kick && h.step / spb == b)
+                k.push_back (h.step % spb);
+        return k;
+    };
+    auto sim = [] (const std::vector<int>& a, const std::vector<int>& b)
+    {
+        int inter = 0;
+        for (int s : a)
+            if (std::find (b.begin(), b.end(), s) != b.end())
+                ++inter;
+        const int uni = (int) a.size() + (int) b.size() - inter;
+        return uni > 0 ? (float) inter / (float) uni : 0.0f;
+    };
+
+    // в брейкдауне новый такт должен остаться вариацией того же рифа
+    const bool riff = cur.part == Part::Breakdown && ! blast;
+    const auto neighbour = barKicks (cur, bar == 0 ? 1 : bar - 1);
+
+    Pattern cand = cur;
+    for (int attempt = 0; attempt < 40; ++attempt)
+    {
+        Pattern c = generate (cur.style, cur.part, cur.numerator, cur.denominator, rng);
+        if (isBlastish (c) != blast || isHalfFeel (splitLanes (c)[(size_t) Lane::Snare]) != half)
+            continue;
+        cand = c;
+        if (! riff || sim (barKicks (c, bar), neighbour) >= 0.45f)
+            break;
+    }
+
+    const int from = bar * spb, to = from + spb;
+    Pattern r = cur;
+    r.hits.erase (std::remove_if (r.hits.begin(), r.hits.end(), [&] (const Hit& h)
+                                  { return h.step >= from && h.step < to && ! lockedLanes[(size_t) laneOf (h.art)]; }),
+                  r.hits.end());
+    for (const auto& h : cand.hits)
+        if (h.step >= from && h.step < to && ! lockedLanes[(size_t) laneOf (h.art)])
+            r.hits.push_back (h);
+
+    sortHits (r.hits);
+    return r;
+}
 } // namespace drums

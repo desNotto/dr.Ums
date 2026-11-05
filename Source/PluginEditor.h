@@ -101,6 +101,7 @@ private:
     ui::IconButton diceAll { ui::Icon::Dice }, gearBtn { ui::Icon::Gear },
                    playBtn { ui::Icon::Play }, heartBtn { ui::Icon::Heart };
     std::unique_ptr<ui::IconButton> laneDice[4], laneLock[4];
+    std::unique_ptr<ui::IconButton> barDice[4], barLock[4];   // Random и блокировка для каждого окошка-такта
     juce::Label status;
 
     std::array<juce::uint32, (size_t) drums::kNumArts> lastHits {};

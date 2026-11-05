@@ -128,7 +128,7 @@ void DrUmsProcessor::randomizeAll()
 {
     audition.reset();
     const auto fresh = generate (style, part, num, den, rng);
-    pattern = mergeLocked (fresh, pattern, locked);
+    pattern = mergeLocked (fresh, pattern, locked, barLocked);
     changed();
 }
 
@@ -138,7 +138,25 @@ void DrUmsProcessor::randomizeLane (Lane lane)
         return;
 
     audition.reset();
-    pattern = regenerateLane (pattern, lane, rng);
+    pattern = keepBars (regenerateLane (pattern, lane, rng), pattern, barLocked);
+    changed();
+}
+
+void DrUmsProcessor::setBarLocked (int bar, bool b)
+{
+    if (bar < 0 || bar >= 4)
+        return;
+    barLocked[(size_t) bar] = b;
+    sendChangeMessage();
+}
+
+void DrUmsProcessor::randomizeBar (int bar)
+{
+    if (bar < 0 || bar >= 4 || barLocked[(size_t) bar])
+        return;
+
+    audition.reset();
+    pattern = regenerateBar (pattern, bar, locked, rng);
     changed();
 }
 
@@ -161,6 +179,7 @@ bool DrUmsProcessor::setTimeSig (int n, int d)
 
     num = n;
     den = d;
+    barLocked.fill (false);   // у нового размера такты другие, старые блокировки не имеют смысла
     randomizeAll();
     return true;
 }
@@ -183,6 +202,7 @@ void DrUmsProcessor::setAudition (const Pattern* p)
 void DrUmsProcessor::loadGroove (const GrooveEntry& e)
 {
     audition.reset();
+    barLocked.fill (false);
     pattern = e.pattern;
     style = pattern.style;
     part = pattern.part;
@@ -228,6 +248,11 @@ void DrUmsProcessor::getStateInformation (juce::MemoryBlock& destData)
     for (bool b : locked)
         locks.add (b);
     o->setProperty ("locks", locks);
+
+    juce::Array<juce::var> barLocks;
+    for (bool b : barLocked)
+        barLocks.add (b);
+    o->setProperty ("barLocks", barLocks);
     o->setProperty ("pattern", patternToVar (pattern));
 
     const auto text = juce::JSON::toString (juce::var (o));
@@ -256,6 +281,11 @@ void DrUmsProcessor::setStateInformation (const void* data, int sizeInBytes)
     if (const auto* arr = locksVar.getArray())
         for (int i = 0; i < juce::jmin ((int) locked.size(), arr->size()); ++i)
             locked[(size_t) i] = (bool) (*arr)[i];
+
+    const auto barLocksVar = v.getProperty ("barLocks", juce::var());
+    if (const auto* arr = barLocksVar.getArray())
+        for (int i = 0; i < juce::jmin ((int) barLocked.size(), arr->size()); ++i)
+            barLocked[(size_t) i] = (bool) (*arr)[i];
 
     const auto saved = patternFromVar (v.getProperty ("pattern", juce::var()));
     if (! saved.hits.empty())

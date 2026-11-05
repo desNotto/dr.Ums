@@ -81,10 +81,12 @@ public:
 // Кубик Random: белая плитка с рамкой, чёрные грани и вопросы (инверсия присланного дизайна).
 inline void drawDice (juce::Graphics& g, juce::Rectangle<float> tile)
 {
+    const float rim = juce::jlimit (1.5f, 3.0f, tile.getWidth() * 0.05f);
+    const float corner = tile.getWidth() * 0.17f;
     g.setColour (juce::Colours::white);
-    g.fillRoundedRectangle (tile.reduced (1.5f), 10.0f);
+    g.fillRoundedRectangle (tile.reduced (rim * 0.5f), corner);
     g.setColour (juce::Colour (0xFF5A667D));
-    g.drawRoundedRectangle (tile.reduced (1.5f), 10.0f, 3.0f);
+    g.drawRoundedRectangle (tile.reduced (rim * 0.5f), corner, rim);
 
     const auto r = tile.reduced (tile.getWidth() * 0.15f);
     const auto c = r.getCentre();
@@ -168,10 +170,12 @@ inline void drawLock (juce::Graphics& g, juce::Rectangle<float> r, bool locked, 
     const auto fg = locked ? juce::Colours::black : juce::Colours::white;
     const auto edge = locked ? tint : juce::Colour (0xFF5A667D);
 
+    const float rim = juce::jlimit (1.5f, 3.0f, r.getWidth() * 0.05f);
+    const float corner = r.getWidth() * 0.17f;
     g.setColour (bg);
-    g.fillRoundedRectangle (r.reduced (1.5f), 10.0f);
+    g.fillRoundedRectangle (r.reduced (rim * 0.5f), corner);
     g.setColour (edge);
-    g.drawRoundedRectangle (r.reduced (1.5f), 10.0f, 3.0f);
+    g.drawRoundedRectangle (r.reduced (rim * 0.5f), corner, rim);
 
     const auto& rat = ratImage();
     if (rat.isValid())
@@ -280,7 +284,7 @@ public:
     void paintButton (juce::Graphics& g, bool over, bool down) override
     {
         auto r = getLocalBounds().toFloat();
-        const float shrink = down ? 3.0f : (over ? 1.0f : 2.0f);
+        const float shrink = r.getWidth() * (down ? 0.05f : (over ? 0.017f : 0.033f));
 
         switch (icon)
         {
@@ -833,8 +837,16 @@ public:
 
             g.restoreState();
 
-            g.setColour (col::line);
-            g.drawRoundedRectangle (tile.reduced (0.5f), 10.0f, 1.0f);
+            if (proc.isBarLocked (b) && ! proc.hasAudition())
+            {
+                g.setColour (col::accentHi);
+                g.drawRoundedRectangle (tile.reduced (1.0f), 10.0f, 2.0f);
+            }
+            else
+            {
+                g.setColour (col::line);
+                g.drawRoundedRectangle (tile.reduced (0.5f), 10.0f, 1.0f);
+            }
         }
     }
 

@@ -5,7 +5,7 @@ using ui::ru;
 
 namespace
 {
-    constexpr int kW = 766, kH = 623;      // средний размер (100%) и пропорции окна
+    constexpr int kW = 766, kH = 645;      // средний размер (100%) и пропорции окна
     constexpr int kLargeW = 1072;          // большой размер (140%)
     constexpr int kMinW = 383, kMaxW = kW * 2;
 
@@ -41,6 +41,24 @@ DrUmsEditor::DrUmsEditor (DrUmsProcessor& p)
         laneLock[i]->setBounds (88, 164 + i * 92, 60, 60);
     }
 
+    // Random и замок под каждым из четырёх окошек превью
+    for (int i = 0; i < 4; ++i)
+    {
+        barDice[i] = std::make_unique<ui::IconButton> (ui::Icon::Dice);
+        barLock[i] = std::make_unique<ui::IconButton> (ui::Icon::Lock);
+        barLock[i]->setClickingTogglesState (true);
+        barLock[i]->setTint (ui::col::accentHi);
+        content.addAndMakeVisible (*barDice[i]);
+        content.addAndMakeVisible (*barLock[i]);
+
+        const int x = 14 + i * 171;
+        barDice[i]->setBounds (x, 604, 24, 24);
+        barLock[i]->setBounds (x + 30, 604, 24, 24);
+
+        barDice[i]->onClick = [this, i] { proc.randomizeBar (i); };
+        barLock[i]->onClick = [this, i] { proc.setBarLocked (i, barLock[i]->getToggleState()); };
+    }
+
     backdrop.setBounds (0, 0, kW, kH);
     libraryBtn.setBounds (14, 10, 182, 46);
     styleBtn.setBounds (204, 10, 140, 46);
@@ -53,7 +71,7 @@ DrUmsEditor::DrUmsEditor (DrUmsProcessor& p)
     partBox.setBounds (176, 82, 574, 44);
     kit.setBounds (170, 158, 582, 360);
     grooves.setBounds (14, 158, 738, 360);
-    preview.setBounds (14, 540, 676, 60);
+    preview.setBounds (14, 540, 676, 58);
     heartBtn.setBounds (698, 543, 54, 54);
     status.setBounds (188, 488, 380, 22);
 
@@ -199,7 +217,10 @@ void DrUmsEditor::refresh()
     sigBox.setValue (proc.getNumerator(), proc.getDenominator());
 
     for (int i = 0; i < 4; ++i)
+    {
         laneLock[i]->setToggleState (proc.isLocked (rowLane[i]), juce::dontSendNotification);
+        barLock[i]->setToggleState (proc.isBarLocked (i), juce::dontSendNotification);
+    }
 
     playBtn.setToggleState (proc.isPlaying(), juce::dontSendNotification);
     preview.repaint();
@@ -223,6 +244,8 @@ void DrUmsEditor::setGrooveMode (bool on)
     {
         laneDice[i]->setVisible (! on);
         laneLock[i]->setVisible (! on);
+        barDice[i]->setVisible (! on);
+        barLock[i]->setVisible (! on);
     }
 
     if (on)
